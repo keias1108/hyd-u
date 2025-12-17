@@ -40,8 +40,10 @@ export class Renderer {
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }, // oField
         { binding: 2, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }, // hField
         { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }, // cField
-        { binding: 4, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },           // gridInfo
-        { binding: 5, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },           // renderParams
+        { binding: 4, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }, // mField
+        { binding: 5, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }, // bField
+        { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 7, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },           // renderParams
       ],
     });
 
@@ -96,7 +98,12 @@ export class Renderer {
   createBindGroup() {
     const currentOBuffer = this.simulationEngine.getCurrentOBuffer();
     const currentHBuffer = this.simulationEngine.getCurrentHBuffer();
-    const currentRBuffer = this.simulationEngine.getCurrentRBuffer ? this.simulationEngine.getCurrentRBuffer() : this.buffers.rField;
+    const currentRBuffer = this.simulationEngine.getCurrentRBuffer
+      ? this.simulationEngine.getCurrentRBuffer()
+      : (this.buffers.getRBufferCurrent ? this.buffers.getRBufferCurrent(0) : this.buffers.rFieldA);
+    const currentMBuffer = this.simulationEngine.getCurrentMBuffer
+      ? this.simulationEngine.getCurrentMBuffer()
+      : (this.buffers.getMBufferCurrent ? this.buffers.getMBufferCurrent(0) : this.buffers.mFieldA);
 
     this.renderBindGroup = this.device.createBindGroup({
       label: 'Render Bind Group',
@@ -106,8 +113,10 @@ export class Renderer {
         { binding: 1, resource: { buffer: currentOBuffer } },
         { binding: 2, resource: { buffer: currentHBuffer } },
         { binding: 3, resource: { buffer: this.buffers.cField } },
-        { binding: 4, resource: { buffer: this.buffers.gridInfoBuffer } },
-        { binding: 5, resource: { buffer: this.buffers.renderParamsBuffer } },
+        { binding: 4, resource: { buffer: currentMBuffer } },
+        { binding: 5, resource: { buffer: this.buffers.bField } },
+        { binding: 6, resource: { buffer: this.buffers.gridInfoBuffer } },
+        { binding: 7, resource: { buffer: this.buffers.renderParamsBuffer } },
       ],
     });
   }

@@ -12,8 +12,14 @@ export class SimulationEngine {
     // Ping-pong buffer index for R field (0 = A current, 1 = B current)
     this.rBufferIndex = 0;
 
+    // Ping-pong buffer index for R field (0 = A current, 1 = B current)
+    this.rBufferIndex = 0;
+
     // Ping-pong buffer index for O field (0 = A current, 1 = B current)
     this.oBufferIndex = 0;
+
+    // Ping-pong buffer index for M field
+    this.mBufferIndex = 0;
 
     // Ping-pong buffer index for H field (0 = A current, 1 = B current)
     this.hBufferIndex = 0;
@@ -25,6 +31,7 @@ export class SimulationEngine {
     this.rPipeline = null;
     this.oPipeline = null;
     this.cPipeline = null;
+    this.mPipeline = null;
     this.hPipeline = null;
     this.hDiffusePipeline = null;
 
@@ -48,6 +55,7 @@ export class SimulationEngine {
     const updateRCode = await this.loadShader('shaders/compute/updateR.wgsl');
     const updateOCode = await this.loadShader('shaders/compute/updateO.wgsl');
     const computeCCode = await this.loadShader('shaders/compute/computeC.wgsl');
+    const updateMCode = await this.loadShader('shaders/compute/updateM.wgsl');
     const updateHCode = await this.loadShader('shaders/compute/updateH.wgsl');
     const diffuseHCode = await this.loadShader('shaders/compute/diffuseH.wgsl');
 
@@ -55,6 +63,7 @@ export class SimulationEngine {
     await this.createRPipeline(updateRCode);
     await this.createOPipeline(updateOCode);
     await this.createCPipeline(computeCCode);
+    await this.createMPipeline(updateMCode);
     await this.createHPipeline(updateHCode);
     await this.createHDiffusePipeline(diffuseHCode);
 
@@ -121,8 +130,10 @@ export class SimulationEngine {
         { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // oFieldIn
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // oFieldOut
         { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // rField
-        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
-        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // mField
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // bField
+        { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
       ],
     });
 
@@ -180,6 +191,41 @@ export class SimulationEngine {
   }
 
   /**
+   * Create M field update pipeline
+   */
+  async createMPipeline(code) {
+    const shaderModule = this.device.createShaderModule({
+      label: 'M Field Update Shader',
+      code: code,
+    });
+
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      label: 'M Field Bind Group Layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // mFieldIn
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // mFieldOut
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // bField
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
+      ],
+    });
+
+    const pipelineLayout = this.device.createPipelineLayout({
+      label: 'M Field Pipeline Layout',
+      bindGroupLayouts: [bindGroupLayout],
+    });
+
+    this.mPipeline = this.device.createComputePipeline({
+      label: 'M Field Compute Pipeline',
+      layout: pipelineLayout,
+      compute: {
+        module: shaderModule,
+        entryPoint: 'main',
+      },
+    });
+  }
+
+  /**
    * Create H field update pipeline
    */
   async createHPipeline(code) {
@@ -195,8 +241,9 @@ export class SimulationEngine {
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // hFieldOut
         { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // rField
         { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // oField
-        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
-        { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // mField
+        { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
       ],
     });
 
@@ -320,6 +367,7 @@ export class SimulationEngine {
       const currentOBuffer = this.buffers.getOBufferCurrent(this.oBufferIndex);
       const nextOBuffer = this.buffers.getOBufferNext(this.oBufferIndex);
       const currentRBuffer = this.buffers.getRBufferCurrent(this.rBufferIndex);
+      const currentMBuffer = this.buffers.getMBufferCurrent(this.mBufferIndex);
 
       const oBindGroup = this.device.createBindGroup({
         label: 'O Field Bind Group (dynamic)',
@@ -328,8 +376,10 @@ export class SimulationEngine {
           { binding: 0, resource: { buffer: currentOBuffer } },
           { binding: 1, resource: { buffer: nextOBuffer } },
           { binding: 2, resource: { buffer: currentRBuffer } },
-          { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
-          { binding: 4, resource: { buffer: this.buffers.paramsBuffer } },
+          { binding: 3, resource: { buffer: currentMBuffer } },
+          { binding: 4, resource: { buffer: this.buffers.bField } },
+          { binding: 5, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 6, resource: { buffer: this.buffers.paramsBuffer } },
         ],
       });
 
@@ -378,6 +428,7 @@ export class SimulationEngine {
       const currentOBuffer = this.oBufferIndex === 0 ? this.buffers.oFieldA : this.buffers.oFieldB;
       const currentHBuffer = this.hBufferIndex === 0 ? this.buffers.hFieldA : this.buffers.hFieldB;
       const nextHBuffer = this.hBufferIndex === 0 ? this.buffers.hFieldB : this.buffers.hFieldA;
+      const currentMBuffer = this.buffers.getMBufferCurrent(this.mBufferIndex);
 
       const hBindGroup = this.device.createBindGroup({
         label: 'H Field Bind Group (dynamic)',
@@ -387,8 +438,9 @@ export class SimulationEngine {
           { binding: 1, resource: { buffer: nextHBuffer } },
           { binding: 2, resource: { buffer: this.buffers.getRBufferCurrent(this.rBufferIndex) } },
           { binding: 3, resource: { buffer: currentOBuffer } },
-          { binding: 4, resource: { buffer: this.buffers.gridInfoBuffer } },
-          { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
+          { binding: 4, resource: { buffer: currentMBuffer } },
+          { binding: 5, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 6, resource: { buffer: this.buffers.paramsBuffer } },
         ],
       });
 
@@ -416,6 +468,34 @@ export class SimulationEngine {
     // 5.5 Swap H buffer index again
     this.hBufferIndex = 1 - this.hBufferIndex;
 
+    // 6. Update M field (growth/decay)
+    {
+      const pass = encoder.beginComputePass({ label: 'Update M Field' });
+      pass.setPipeline(this.mPipeline);
+
+      const currentMBuffer = this.buffers.getMBufferCurrent(this.mBufferIndex);
+      const nextMBuffer = this.buffers.getMBufferNext(this.mBufferIndex);
+
+      const mBindGroup = this.device.createBindGroup({
+        label: 'M Field Bind Group (dynamic)',
+        layout: this.mPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentMBuffer } },
+          { binding: 1, resource: { buffer: nextMBuffer } },
+          { binding: 2, resource: { buffer: this.buffers.bField } },
+          { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 4, resource: { buffer: this.buffers.paramsBuffer } },
+        ],
+      });
+
+      pass.setBindGroup(0, mBindGroup);
+      pass.dispatchWorkgroups(workgroupsX, workgroupsY);
+      pass.end();
+    }
+
+    // Swap M buffer index
+    this.mBufferIndex = 1 - this.mBufferIndex;
+
     this.device.queue.submit([encoder.finish()]);
     this.frameCount++;
   }
@@ -432,6 +512,13 @@ export class SimulationEngine {
    */
   getCurrentRBuffer() {
     return this.rBufferIndex === 0 ? this.buffers.rFieldA : this.buffers.rFieldB;
+  }
+
+  /**
+   * Get current M buffer for rendering/stats
+   */
+  getCurrentMBuffer() {
+    return this.mBufferIndex === 0 ? this.buffers.mFieldA : this.buffers.mFieldB;
   }
 
   /**

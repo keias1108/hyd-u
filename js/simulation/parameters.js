@@ -60,14 +60,14 @@ export const PARAMETER_DEFS = [
   new ParameterDefinition('deltaTime', 0.016, 0.001, 0.1, 0.001, 'Simulation', 'Time step'),
 
   // Visualization
-  new ParameterDefinition('visualizationMode', 0, 0, 3, 1, 'Visualization', 'Display mode'),
+  new ParameterDefinition('visualizationMode', 0, 0, 5, 1, 'Visualization', 'Display mode'),
   new ParameterDefinition('colorScheme', 1, 0, 2, 1, 'Visualization', 'Color scheme'),
 ];
 
 /**
  * Visualization mode labels
  */
-export const VIZ_MODE_LABELS = ['R Field', 'O Field', 'H Field', 'C=R×O Overlap'];
+export const VIZ_MODE_LABELS = ['R Field', 'O Field', 'H Field', 'C=R×O Overlap', 'M Field', 'B Field'];
 
 /**
  * Color scheme labels
@@ -152,12 +152,16 @@ export class SimulationParameters {
     data[offset++] = this.values.hDecayRate;
     data[offset++] = this.values.hDiffusionRate;
 
+    // M field parameters
+    data[offset++] = this.values.mGrowRate;
+    data[offset++] = this.values.mDeathRate;
+
     // Simulation parameters
     data[offset++] = this.values.deltaTime;
     data[offset++] = performance.now() / 1000.0; // currentTime in seconds
 
     // Padding for alignment
-    while (offset < 24) {
+    while (offset < 32) {
       data[offset++] = 0.0;
     }
 

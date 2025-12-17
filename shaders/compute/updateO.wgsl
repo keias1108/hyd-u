@@ -27,6 +27,8 @@ struct SimParams {
   h0: f32,
   hDecayRate: f32,
   hDiffusionRate: f32,
+  mGrowRate: f32,
+  mDeathRate: f32,
   deltaTime: f32,
   currentTime: f32,
 }
@@ -34,8 +36,10 @@ struct SimParams {
 @group(0) @binding(0) var<storage, read> oFieldIn: array<f32>;
 @group(0) @binding(1) var<storage, read_write> oFieldOut: array<f32>;
 @group(0) @binding(2) var<storage, read> rField: array<f32>;
-@group(0) @binding(3) var<uniform> gridInfo: GridInfo;
-@group(0) @binding(4) var<uniform> params: SimParams;
+@group(0) @binding(3) var<storage, read> mField: array<f32>;
+@group(0) @binding(4) var<storage, read_write> bField: array<f32>;
+@group(0) @binding(5) var<uniform> gridInfo: GridInfo;
+@group(0) @binding(6) var<uniform> params: SimParams;
 
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
@@ -50,6 +54,8 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   let idx = y * gridInfo.width + x;
   let currentO = oFieldIn[idx];
   let currentR = rField[idx];
+  let currentM = mField[idx];
+  let currentB = bField[idx];
 
   // 5-point stencil Laplacian for O diffusion (Neumann-like boundaries)
   var left = currentO;
@@ -73,10 +79,13 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   let laplacian = left + right + up + down - 4.0 * currentO;
   let diffusion = params.oDiffusionRate * laplacian * params.deltaTime;
 
-  // Reaction flux calculation (nonlinear R·O)
+  // Reaction flux calculation (nonlinear R·O) with partitioning by M
   let C = currentR * currentO;
   let F_raw = params.reactionRate * C;
   let F = min(F_raw, currentO / params.deltaTime); // Prevent O from going negative
+  let g = clamp(currentM, 0.0, 1.0);
+  let F_fix = g * F;
+  let F_waste = (1.0 - g) * F;
 
   // O update: restoration - reaction consumption
   let restore = params.restoreRate * (params.o0 - currentO) * params.deltaTime;
@@ -85,4 +94,8 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
 
   // Clamp to valid range [0, 1]
   oFieldOut[idx] = clamp(newO, 0.0, 1.0);
+
+  // Update B: accumulate fixed portion
+  let newB = currentB + F_fix * params.deltaTime;
+  bField[idx] = clamp(newB, 0.0, 10.0);
 }

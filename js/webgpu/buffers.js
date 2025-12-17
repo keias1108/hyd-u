@@ -54,6 +54,26 @@ export class SimulationBuffers {
       label: 'C Field Buffer'
     });
 
+    // M field (ping-pong)
+    this.mFieldA = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'M Field Buffer A'
+    });
+
+    this.mFieldB = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'M Field Buffer B'
+    });
+
+    // B field (accumulated feed)
+    this.bField = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'B Field Buffer'
+    });
+
     // H field (ping-pong for diffusion)
     this.hFieldA = this.device.createBuffer({
       size: fieldBufferSize,
@@ -147,6 +167,34 @@ export class SimulationBuffers {
   }
 
   /**
+   * Initialize M field with small noise
+   */
+  initializeMField(base = 0.001) {
+    const data = new Float32Array(this.gridSize);
+    for (let i = 0; i < this.gridSize; i++) {
+      const noise = (Math.random() - 0.5) * 0.0005; // tiny variation
+      data[i] = Math.max(0, base + noise);
+    }
+
+    this.device.queue.writeBuffer(this.mFieldA, 0, data);
+    this.device.queue.writeBuffer(this.mFieldB, 0, data);
+
+    console.log(`Initialized M field to ~${base} with noise`);
+  }
+
+  /**
+   * Initialize B field to zeros
+   */
+  initializeBField() {
+    const data = new Float32Array(this.gridSize);
+    data.fill(0.0);
+
+    this.device.queue.writeBuffer(this.bField, 0, data);
+
+    console.log('Initialized B field to 0');
+  }
+
+  /**
    * Update simulation parameters buffer
    */
   updateParamsBuffer(params) {
@@ -213,5 +261,19 @@ export class SimulationBuffers {
    */
   getHBufferNext(index) {
     return index === 0 ? this.hFieldB : this.hFieldA;
+  }
+
+  /**
+   * Get current M buffer based on ping-pong index
+   */
+  getMBufferCurrent(index) {
+    return index === 0 ? this.mFieldA : this.mFieldB;
+  }
+
+  /**
+   * Get next M buffer based on ping-pong index
+   */
+  getMBufferNext(index) {
+    return index === 0 ? this.mFieldB : this.mFieldA;
   }
 }

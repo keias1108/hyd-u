@@ -64,6 +64,8 @@ class HydrothermalVentSimulation {
       this.buffers.initializeOField(this.parameters.get('o0'));
       this.buffers.initializeCField();
       this.buffers.initializeHField(this.parameters.get('h0'));
+      this.buffers.initializeMField();
+      this.buffers.initializeBField();
 
       // 4. Initialize simulation engine
       this.engine = new SimulationEngine(
@@ -120,6 +122,18 @@ class HydrothermalVentSimulation {
     // Reset button
     const resetButton = document.getElementById('resetButton');
     resetButton.addEventListener('click', () => this.reset());
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+        if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
+          return;
+        }
+        e.preventDefault();
+        this.toggleSimulation();
+      }
+    });
   }
 
   /**
@@ -195,11 +209,14 @@ class HydrothermalVentSimulation {
     this.buffers.initializeOField(this.parameters.get('o0'));
     this.buffers.initializeCField();
     this.buffers.initializeHField(this.parameters.get('h0'));
+    this.buffers.initializeMField();
+    this.buffers.initializeBField();
 
     // Reset engine frame count and buffer indices
     this.engine.frameCount = 0;
     this.engine.rBufferIndex = 0;
     this.engine.oBufferIndex = 0;
+    this.engine.mBufferIndex = 0;
     this.engine.hBufferIndex = 0;
 
     // Reset FPS counter
