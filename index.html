@@ -1,47 +1,62 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hydrothermal Vent Simulation - WebGPU</title>
-  <link rel="stylesheet" href="css/styles.css">
-</head>
-<body>
-  <div id="app">
-    <header>
-      <h1>Hydrothermal Vent Simulation</h1>
-      <p class="subtitle">WebGPU Compute-based R-O Field Model</p>
-      <div id="simulation-controls">
-        <button id="startButton" class="btn btn-primary">Start</button>
-        <button id="resetButton" class="btn btn-secondary">Reset</button>
-      </div>
-    </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hydrothermal Vent Simulation - WebGPU</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <!-- 좌측 사이드바: 컨트롤 패널 -->
+    <div id="controls-sidebar">
+      <h1>Hydrothermal Vent</h1>
+      <p class="subtitle">WebGPU R-O Field Model</p>
 
-    <main>
-      <div id="canvas-container">
-        <canvas id="renderCanvas" width="512" height="512"></canvas>
-        <div id="info-panel">
-          <div id="fps-counter">FPS: --</div>
-          <div id="field-info">Field: R (Reducing substance)</div>
+      <!-- 시뮬레이션 컨트롤 -->
+      <div class="section">
+        <div class="controls-row">
+          <button id="startButton" class="btn btn-primary">Pause</button>
+          <button id="resetButton" class="btn btn-secondary">Reset</button>
         </div>
       </div>
 
-      <aside id="controls-panel">
-        <h2>Parameters</h2>
-        <div id="controls"></div>
-      </aside>
-    </main>
+      <!-- 파라미터 컨트롤 (동적 생성) -->
+      <div id="controls"></div>
+    </div>
 
-    <footer>
-      <p>R: Reducing substance (central injection) | O: Oxidizing substance (relaxes to O₀) | C: R × O overlap</p>
-    </footer>
-  </div>
+    <!-- 우측 메인: 캔버스 전체 화면 -->
+    <div id="canvas-container">
+      <canvas id="renderCanvas" width="800" height="800"></canvas>
 
-  <div id="error-message" class="hidden">
-    <h2>WebGPU Not Available</h2>
-    <p>This simulation requires WebGPU support. Please use a browser that supports WebGPU (Chrome 113+, Edge 113+).</p>
-  </div>
+      <!-- 캔버스 오버레이: 우측 상단 정보 -->
+      <div class="canvas-overlay">
+        <div class="overlay-item">
+          <span class="overlay-label">FPS</span>
+          <span class="overlay-value" id="fps-counter">--</span>
+        </div>
+        <div class="overlay-item">
+          <span class="overlay-label">O avg</span>
+          <span class="overlay-value" id="o-avg">0.800</span>
+        </div>
+        <div class="overlay-item">
+          <span class="overlay-label">R total</span>
+          <span class="overlay-value" id="r-total">0.0</span>
+        </div>
+      </div>
 
-  <script type="module" src="js/main.js"></script>
-</body>
+      <!-- 단축키 힌트: 좌측 하단 -->
+      <div class="shortcuts-hint"><kbd>Space</kbd> Pause/Resume</div>
+    </div>
+
+    <!-- WebGPU 미지원 에러 메시지 -->
+    <div id="error-message" class="hidden">
+      <h2>WebGPU Not Available</h2>
+      <p>
+        This simulation requires WebGPU support. Please use a browser that
+        supports WebGPU (Chrome 113+, Edge 113+).
+      </p>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
 </html>

@@ -1,3 +1,32 @@
+/* ============================================================================
+   Hydrothermal Vent Simulation - Glassmorphism Space Theme
+   ============================================================================ */
+
+:root {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #e8eef2;
+
+  /* 우주 배경: 별 + 그라데이션 */
+  background: #0a0118;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, white, transparent),
+    radial-gradient(2px 2px at 60% 70%, white, transparent),
+    radial-gradient(1px 1px at 50% 50%, white, transparent),
+    radial-gradient(1px 1px at 80% 10%, white, transparent),
+    radial-gradient(2px 2px at 90% 60%, white, transparent),
+    radial-gradient(1px 1px at 15% 80%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 40% 20%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(circle at 50% 50%, #1a0b2e 0%, #0a0118 100%);
+  background-attachment: fixed;
+
+  /* 글라스모피즘 컬러 팔레트 */
+  --glass-bg: rgba(18, 26, 37, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --accent-blue: #8ab4f8;
+  --accent-purple: #b794f6;
+  --glow-blue: rgba(138, 180, 248, 0.5);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,207 +34,218 @@
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #1a1a1a;
-  color: #e0e0e0;
-  line-height: 1.6;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100vh;
+  overflow: hidden;
 }
 
-#app {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 20px;
+/* ============================================================================
+   좌측 사이드바: 컨트롤 패널
+   ============================================================================ */
+
+#controls-sidebar {
+  padding: 16px;
+  background: rgba(15, 22, 33, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--glass-border);
+  box-sizing: border-box;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-header {
-  text-align: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid #333;
+#controls-sidebar h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 30px rgba(138, 180, 248, 0.3);
 }
 
-h1 {
-  font-size: 2rem;
-  color: #4a9eff;
-  margin-bottom: 5px;
+#controls-sidebar .subtitle {
+  font-size: 11px;
+  color: rgba(232, 238, 242, 0.5);
+  margin-bottom: 16px;
+  display: block;
 }
 
-.subtitle {
-  font-size: 0.9rem;
-  color: #999;
-  margin-bottom: 15px;
+/* 커스텀 스크롤바 */
+#controls-sidebar::-webkit-scrollbar {
+  width: 8px;
 }
 
-#simulation-controls {
+#controls-sidebar::-webkit-scrollbar-track {
+  background: rgba(10, 15, 22, 0.5);
+}
+
+#controls-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(138, 180, 248, 0.3);
+  border-radius: 4px;
+}
+
+#controls-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(138, 180, 248, 0.5);
+}
+
+/* ============================================================================
+   섹션 스타일 (글라스모피즘)
+   ============================================================================ */
+
+.section {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.section:hover {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(138, 180, 248, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.controls-row {
   display: flex;
-  gap: 10px;
-  justify-content: center;
-  margin-top: 15px;
+  gap: 8px;
+}
+
+/* ============================================================================
+   버튼 스타일
+   ============================================================================ */
+
+button, select {
+  padding: 8px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(27, 38, 54, 0.6);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  color: #e8eef2;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+button:hover, select:hover {
+  background: rgba(36, 50, 72, 0.8);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 15px var(--glow-blue);
+}
+
+button:active {
+  transform: translateY(1px);
 }
 
 .btn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-weight: 600;
+  flex: 1;
 }
 
 .btn-primary {
-  background-color: #4a9eff;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #357abd;
-  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(138, 180, 248, 0.3), rgba(183, 148, 246, 0.3));
 }
 
 .btn-secondary {
-  background-color: #555;
-  color: white;
+  background: rgba(50, 60, 80, 0.5);
 }
 
-.btn-secondary:hover {
-  background-color: #666;
-  transform: translateY(-2px);
-}
-
-main {
-  display: grid;
-  grid-template-columns: 1fr 350px;
-  gap: 30px;
-  align-items: start;
-}
-
-#canvas-container {
-  position: relative;
-  background-color: #000;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-}
-
-#renderCanvas {
-  display: block;
+select {
   width: 100%;
-  height: auto;
-  image-rendering: pixelated;
-}
-
-#info-panel {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background-color: rgba(0, 0, 0, 0.7);
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-family: 'Courier New', monospace;
-}
-
-#fps-counter {
-  color: #4a9eff;
-  font-weight: bold;
-}
-
-#field-info {
-  color: #999;
   margin-top: 4px;
 }
 
-#controls-panel {
-  background-color: #242424;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  max-height: 600px;
-  overflow-y: auto;
+select:focus {
+  outline: none;
+  box-shadow: 0 0 20px var(--glow-blue);
+  border-color: rgba(138, 180, 248, 0.8);
 }
 
-#controls-panel h2 {
-  font-size: 1.3rem;
-  color: #4a9eff;
-  margin-bottom: 20px;
-}
+/* ============================================================================
+   파라미터 패널 (Collapsible)
+   ============================================================================ */
 
 .parameter-panel {
-  margin-bottom: 25px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #333;
-}
-
-.parameter-panel:last-child {
-  border-bottom: none;
+  margin-bottom: 12px;
 }
 
 .parameter-panel h3 {
-  font-size: 1rem;
-  color: #ccc;
-  margin-bottom: 15px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  margin: 0 0 8px 0;
+  padding: 10px 12px;
+  background: rgba(30, 42, 59, 0.5);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
 }
 
+.parameter-panel h3:hover {
+  background: rgba(30, 42, 59, 0.8);
+  box-shadow: 0 0 15px rgba(138, 180, 248, 0.3);
+  border-color: rgba(138, 180, 248, 0.3);
+}
+
+.parameter-panel h3 .toggle {
+  display: inline-block;
+  width: 16px;
+  font-size: 11px;
+  transition: transform 0.2s ease;
+  margin-right: 4px;
+}
+
+.parameter-panel.collapsed h3 .toggle {
+  transform: rotate(0deg);
+}
+
+.parameter-panel.expanded h3 .toggle {
+  transform: rotate(90deg);
+}
+
+.parameter-panel .panel-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  max-height: 1000px;
+  opacity: 1;
+}
+
+.parameter-panel.collapsed .panel-content {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* ============================================================================
+   파라미터 컨트롤
+   ============================================================================ */
+
 .parameter-control {
-  margin-bottom: 15px;
+  margin-bottom: 12px;
 }
 
 .parameter-control label {
-  display: block;
-  font-size: 0.85rem;
-  color: #999;
-  margin-bottom: 5px;
-}
-
-.parameter-control input[type="range"] {
-  width: 100%;
-  height: 6px;
-  background: #333;
-  border-radius: 3px;
-  outline: none;
-  -webkit-appearance: none;
-}
-
-.parameter-control input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  background: #4a9eff;
-  cursor: pointer;
-  border-radius: 50%;
-  transition: background 0.3s ease;
-}
-
-.parameter-control input[type="range"]::-webkit-slider-thumb:hover {
-  background: #357abd;
-}
-
-.parameter-control input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  background: #4a9eff;
-  cursor: pointer;
-  border-radius: 50%;
-  border: none;
-  transition: background 0.3s ease;
-}
-
-.parameter-control input[type="range"]::-moz-range-thumb:hover {
-  background: #357abd;
-}
-
-.parameter-control .value-display {
-  display: inline-block;
-  min-width: 50px;
-  text-align: right;
-  font-weight: bold;
-  color: #4a9eff;
-  margin-left: 10px;
-  font-family: 'Courier New', monospace;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: rgba(232, 238, 242, 0.9);
 }
 
 .parameter-control-row {
@@ -214,14 +254,159 @@ main {
   gap: 10px;
 }
 
-footer {
-  margin-top: 30px;
-  text-align: center;
-  padding-top: 20px;
-  border-top: 2px solid #333;
-  font-size: 0.85rem;
-  color: #666;
+.value-display {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-blue);
+  font-weight: 500;
+  min-width: 50px;
+  text-align: right;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
 }
+
+/* ============================================================================
+   슬라이더 스타일
+   ============================================================================ */
+
+input[type="range"] {
+  width: 100%;
+  height: 6px;
+  background: rgba(50, 60, 80, 0.5);
+  border-radius: 3px;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent-blue);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px var(--glow-blue);
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: #a0c8ff;
+  box-shadow: 0 0 20px var(--glow-blue);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--accent-blue);
+  cursor: pointer;
+  border-radius: 50%;
+  border: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px var(--glow-blue);
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  background: #a0c8ff;
+  box-shadow: 0 0 20px var(--glow-blue);
+}
+
+input[type="range"]:focus {
+  outline: none;
+}
+
+/* ============================================================================
+   캔버스 컨테이너 및 오버레이
+   ============================================================================ */
+
+#canvas-container {
+  position: relative;
+  background: #0b0f16;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+canvas {
+  display: block;
+  max-width: min(100vh, calc(100vw - 320px));
+  max-height: 100vh;
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+
+.canvas-overlay {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 12px 16px;
+  background: rgba(15, 22, 33, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  gap: 20px;
+  pointer-events: none;
+}
+
+.overlay-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overlay-label {
+  color: rgba(232, 238, 242, 0.7);
+  font-size: 12px;
+}
+
+.overlay-value {
+  color: var(--accent-blue);
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* ============================================================================
+   단축키 힌트
+   ============================================================================ */
+
+.shortcuts-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  padding: 10px 14px;
+  background: rgba(15, 22, 33, 0.75);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  font-size: 11px;
+  color: rgba(232, 238, 242, 0.6);
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+.shortcuts-hint kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  background: rgba(138, 180, 248, 0.15);
+  border: 1px solid rgba(138, 180, 248, 0.3);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--accent-blue);
+  margin: 0 2px;
+}
+
+/* ============================================================================
+   에러 메시지
+   ============================================================================ */
 
 .hidden {
   display: none;
@@ -232,28 +417,57 @@ footer {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background-color: #2a2a2a;
+  background: rgba(30, 38, 54, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   padding: 40px;
-  border-radius: 12px;
+  border-radius: 16px;
   text-align: center;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--glass-border);
+  z-index: 1000;
 }
 
 #error-message h2 {
-  color: #ff4a4a;
+  color: #ff6b6b;
   margin-bottom: 15px;
+  font-size: 24px;
 }
 
 #error-message p {
-  color: #ccc;
+  color: #e8eef2;
+  line-height: 1.6;
 }
 
+/* ============================================================================
+   반응형 (모바일)
+   ============================================================================ */
+
 @media (max-width: 900px) {
-  main {
+  body {
     grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
   }
 
-  #controls-panel {
-    max-height: none;
+  #controls-sidebar {
+    height: auto;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  #canvas-container canvas {
+    height: 60vh;
+  }
+
+  .canvas-overlay {
+    top: 8px;
+    right: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .shortcuts-hint {
+    display: none;
   }
 }

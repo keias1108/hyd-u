@@ -28,6 +28,11 @@ class HydrothermalVentSimulation {
     this.fps = 0;
     this.fpsUpdateInterval = 500; // Update FPS display every 500ms
     this.lastFpsUpdate = 0;
+
+    // Stats tracking
+    this.lastStatsUpdate = 0;
+    this.statsUpdateInterval = 100; // Update stats every 100ms
+    this.currentStats = { rTotal: 0, oAvg: 0.8 };
   }
 
   /**
@@ -224,10 +229,25 @@ class HydrothermalVentSimulation {
       this.updateFpsDisplay();
     }
 
+    // Update statistics (100ms interval)
+    if (now - this.lastStatsUpdate >= this.statsUpdateInterval) {
+      this.updateStats();
+      this.lastStatsUpdate = now;
+    }
+
     this.lastFrameTime = now;
 
     // Continue loop
     requestAnimationFrame(() => this.animate());
+  }
+
+  /**
+   * Update statistics (async, non-blocking)
+   */
+  async updateStats() {
+    const stats = await this.computeFieldStats();
+    this.currentStats = stats;
+    this.updateStatsDisplay();
   }
 
   /**
@@ -236,7 +256,77 @@ class HydrothermalVentSimulation {
   updateFpsDisplay() {
     const fpsCounter = document.getElementById('fps-counter');
     if (fpsCounter) {
-      fpsCounter.textContent = `FPS: ${this.fps}`;
+      fpsCounter.textContent = this.fps;
+    }
+  }
+
+  /**
+   * Read GPU buffer to CPU
+   */
+  async readBuffer(gpuBuffer) {
+    const size = gpuBuffer.size;
+
+    // Create read buffer
+    const readBuffer = this.gpuContext.device.createBuffer({
+      size: size,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+
+    // Copy command
+    const encoder = this.gpuContext.device.createCommandEncoder();
+    encoder.copyBufferToBuffer(gpuBuffer, 0, readBuffer, 0, size);
+    this.gpuContext.device.queue.submit([encoder.finish()]);
+
+    // Read to CPU
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const data = new Float32Array(readBuffer.getMappedRange());
+    const result = new Float32Array(data); // Copy
+    readBuffer.unmap();
+    readBuffer.destroy();
+
+    return result;
+  }
+
+  /**
+   * Compute field statistics
+   */
+  async computeFieldStats() {
+    try {
+      // Read R and O fields from GPU
+      const rBuffer = await this.readBuffer(this.buffers.rField);
+      const oBuffer = await this.readBuffer(this.engine.getCurrentOBuffer());
+
+      // Calculate statistics
+      let rTotal = 0;
+      let oSum = 0;
+      const gridSize = this.parameters.get('gridWidth') * this.parameters.get('gridHeight');
+
+      for (let i = 0; i < gridSize; i++) {
+        rTotal += rBuffer[i];
+        oSum += oBuffer[i];
+      }
+
+      const oAvg = oSum / gridSize;
+
+      return { rTotal, oAvg };
+    } catch (error) {
+      console.error('Failed to compute field stats:', error);
+      return this.currentStats; // Return last valid stats
+    }
+  }
+
+  /**
+   * Update statistics display
+   */
+  updateStatsDisplay() {
+    const oAvgEl = document.getElementById('o-avg');
+    const rTotalEl = document.getElementById('r-total');
+
+    if (oAvgEl) {
+      oAvgEl.textContent = this.currentStats.oAvg.toFixed(3);
+    }
+    if (rTotalEl) {
+      rTotalEl.textContent = this.currentStats.rTotal.toFixed(1);
     }
   }
 

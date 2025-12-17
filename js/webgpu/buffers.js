@@ -24,27 +24,27 @@ export class SimulationBuffers {
     // R field (single buffer, overwritten each frame)
     this.rField = this.device.createBuffer({
       size: fieldBufferSize,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       label: 'R Field Buffer'
     });
 
     // O field (ping-pong buffers for compute shader updates)
     this.oFieldA = this.device.createBuffer({
       size: fieldBufferSize,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       label: 'O Field Buffer A'
     });
 
     this.oFieldB = this.device.createBuffer({
       size: fieldBufferSize,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       label: 'O Field Buffer B'
     });
 
     // C field (computed overlap R * O)
     this.cField = this.device.createBuffer({
       size: fieldBufferSize,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       label: 'C Field Buffer'
     });
 

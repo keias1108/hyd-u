@@ -32,16 +32,43 @@ export class Controls {
    */
   createPanel(categoryName, definitions) {
     const panel = document.createElement('div');
-    panel.className = 'parameter-panel';
+    panel.className = 'parameter-panel expanded'; // 기본 펼침 상태
 
     const header = document.createElement('h3');
-    header.textContent = categoryName;
+
+    // 토글 아이콘 추가
+    const toggle = document.createElement('span');
+    toggle.className = 'toggle';
+    toggle.textContent = '▼';
+
+    header.appendChild(toggle);
+    header.appendChild(document.createTextNode(categoryName));
+
+    // 클릭 이벤트로 토글
+    header.addEventListener('click', () => {
+      panel.classList.toggle('expanded');
+      panel.classList.toggle('collapsed');
+
+      // 토글 아이콘 회전
+      if (panel.classList.contains('collapsed')) {
+        toggle.textContent = '▶';
+      } else {
+        toggle.textContent = '▼';
+      }
+    });
+
     panel.appendChild(header);
+
+    // 컨텐츠 컨테이너
+    const content = document.createElement('div');
+    content.className = 'panel-content';
 
     definitions.forEach(def => {
       const control = this.createControl(def);
-      panel.appendChild(control);
+      content.appendChild(control);
     });
+
+    panel.appendChild(content);
 
     return panel;
   }
@@ -130,11 +157,6 @@ export class Controls {
       const value = parseInt(e.target.value);
       this.parameters.set(def.name, value);
       this.onParameterChange(def.name, value);
-
-      // Update field info display
-      if (def.name === 'visualizationMode') {
-        this.updateFieldInfo(labels[value]);
-      }
     });
 
     container.appendChild(label);
@@ -161,16 +183,6 @@ export class Controls {
       return num.toFixed(2);
     } else {
       return num.toFixed(3);
-    }
-  }
-
-  /**
-   * Update field info display
-   */
-  updateFieldInfo(fieldName) {
-    const fieldInfo = document.getElementById('field-info');
-    if (fieldInfo) {
-      fieldInfo.textContent = `Field: ${fieldName}`;
     }
   }
 
