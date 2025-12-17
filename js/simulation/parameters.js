@@ -32,19 +32,29 @@ export const PARAMETER_DEFS = [
   new ParameterDefinition('rMaxStrength', 1.0, 0, 1, 0.01, 'R Field', 'Max R at center'),
   new ParameterDefinition('rDecayRadius', 50, 1, 200, 1, 'R Field', 'Injection radius'),
   new ParameterDefinition('rFalloffPower', 2.0, 0.5, 5, 0.1, 'R Field', 'Falloff curve'),
+  new ParameterDefinition('rDiffusionRate', 0.15, 0, 2, 0.01, 'R Field', 'R diffusion rate'),
+  new ParameterDefinition('rDecayRate', 0.05, 0, 1, 0.01, 'R Field', 'R decay rate'),
+  new ParameterDefinition('rAdvectionEnabled', 0, 0, 1, 1, 'R Field', 'R advection ON/OFF'),
+  new ParameterDefinition('rAdvectionVX', 0.03, -0.5, 0.5, 0.01, 'R Field', 'R advection base speed'),
+  new ParameterDefinition('rAdvectionVY', 0.0, -0.5, 0.5, 0.01, 'R Field', 'R advection base speed (Y component)'),
 
   // O Field (Oxidizing substance)
   new ParameterDefinition('o0', 0.8, 0, 1, 0.01, 'O Field', 'Background O₀'),
-  new ParameterDefinition('oRelaxationRate', 0.1, 0, 1, 0.01, 'O Field', 'Relaxation rate'),
+  new ParameterDefinition('oRelaxationRate', 0.06, 0, 1, 0.01, 'O Field', 'Relaxation rate'),
+  new ParameterDefinition('oDiffusionRate', 0.08, 0, 2, 0.01, 'O Field', 'O diffusion rate'),
 
   // Reaction
   new ParameterDefinition('reactionRate', 0.1, 0, 2, 0.01, 'Reaction', '반응 계수'),
-  new ParameterDefinition('restoreRate', 0.1, 0, 1, 0.01, 'Reaction', 'O 복원율'),
+  new ParameterDefinition('restoreRate', 0.04, 0, 1, 0.01, 'Reaction', 'O 복원율'),
 
   // H Field (Heat/Loss trace)
   new ParameterDefinition('h0', 0.0, 0, 1, 0.01, 'H Field', 'H 배경 농도'),
   new ParameterDefinition('hDecayRate', 0.02, 0, 1, 0.01, 'H Field', 'H 감쇠율'),
   new ParameterDefinition('hDiffusionRate', 0.1, 0, 1, 0.01, 'H Field', 'H 확산율'),
+
+  // M Field (microbe/biomass)
+  new ParameterDefinition('mGrowRate', 0.5, 0, 5, 0.01, 'M Field', 'M growth rate from B'),
+  new ParameterDefinition('mDeathRate', 0.05, 0, 1, 0.01, 'M Field', 'M death rate'),
 
   // Simulation
   new ParameterDefinition('deltaTime', 0.016, 0.001, 0.1, 0.001, 'Simulation', 'Time step'),
@@ -122,26 +132,32 @@ export class SimulationParameters {
     data[offset++] = this.values.rMaxStrength;
     data[offset++] = this.values.rDecayRadius;
     data[offset++] = this.values.rFalloffPower;
+    data[offset++] = this.values.rDiffusionRate;
+    data[offset++] = this.values.rDecayRate;
+    data[offset++] = this.values.rAdvectionEnabled;
+    data[offset++] = this.values.rAdvectionVX;
+    data[offset++] = this.values.rAdvectionVY;
 
-    // O field parameters (offset 5-7)
+    // O field parameters
     data[offset++] = this.values.o0;
     data[offset++] = this.values.oRelaxationRate;
     data[offset++] = this.values.restoreRate;
+    data[offset++] = this.values.oDiffusionRate;
 
-    // Reaction parameters (offset 8)
+    // Reaction parameters
     data[offset++] = this.values.reactionRate;
 
-    // H field parameters (offset 9-11)
+    // H field parameters
     data[offset++] = this.values.h0;
     data[offset++] = this.values.hDecayRate;
     data[offset++] = this.values.hDiffusionRate;
 
-    // Simulation parameters (offset 12-13)
+    // Simulation parameters
     data[offset++] = this.values.deltaTime;
     data[offset++] = performance.now() / 1000.0; // currentTime in seconds
 
-    // Padding for alignment (offset 14-15)
-    while (offset < 16) {
+    // Padding for alignment
+    while (offset < 24) {
       data[offset++] = 0.0;
     }
 

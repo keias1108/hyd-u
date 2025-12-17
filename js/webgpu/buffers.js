@@ -21,11 +21,17 @@ export class SimulationBuffers {
   createFieldBuffers() {
     const fieldBufferSize = this.gridSize * 4; // f32 = 4 bytes
 
-    // R field (single buffer, overwritten each frame)
-    this.rField = this.device.createBuffer({
+    // R field (ping-pong for diffusion/advection updates)
+    this.rFieldA = this.device.createBuffer({
       size: fieldBufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-      label: 'R Field Buffer'
+      label: 'R Field Buffer A'
+    });
+
+    this.rFieldB = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'R Field Buffer B'
     });
 
     // O field (ping-pong buffers for compute shader updates)
@@ -122,7 +128,8 @@ export class SimulationBuffers {
     const data = new Float32Array(this.gridSize);
     data.fill(0.0);
 
-    this.device.queue.writeBuffer(this.rField, 0, data);
+    this.device.queue.writeBuffer(this.rFieldA, 0, data);
+    this.device.queue.writeBuffer(this.rFieldB, 0, data);
 
     console.log('Initialized R field to 0');
   }
@@ -165,6 +172,20 @@ export class SimulationBuffers {
    */
   getOBufferNext(index) {
     return index === 0 ? this.oFieldB : this.oFieldA;
+  }
+
+  /**
+   * Get current R buffer based on ping-pong index
+   */
+  getRBufferCurrent(index) {
+    return index === 0 ? this.rFieldA : this.rFieldB;
+  }
+
+  /**
+   * Get next R buffer based on ping-pong index
+   */
+  getRBufferNext(index) {
+    return index === 0 ? this.rFieldB : this.rFieldA;
   }
 
   /**

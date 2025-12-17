@@ -96,12 +96,13 @@ export class Renderer {
   createBindGroup() {
     const currentOBuffer = this.simulationEngine.getCurrentOBuffer();
     const currentHBuffer = this.simulationEngine.getCurrentHBuffer();
+    const currentRBuffer = this.simulationEngine.getCurrentRBuffer ? this.simulationEngine.getCurrentRBuffer() : this.buffers.rField;
 
     this.renderBindGroup = this.device.createBindGroup({
       label: 'Render Bind Group',
       layout: this.renderPipeline.getBindGroupLayout(0),
       entries: [
-        { binding: 0, resource: { buffer: this.buffers.rField } },
+        { binding: 0, resource: { buffer: currentRBuffer } },
         { binding: 1, resource: { buffer: currentOBuffer } },
         { binding: 2, resource: { buffer: currentHBuffer } },
         { binding: 3, resource: { buffer: this.buffers.cField } },

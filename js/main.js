@@ -198,6 +198,7 @@ class HydrothermalVentSimulation {
 
     // Reset engine frame count and buffer indices
     this.engine.frameCount = 0;
+    this.engine.rBufferIndex = 0;
     this.engine.oBufferIndex = 0;
     this.engine.hBufferIndex = 0;
 
@@ -299,7 +300,7 @@ class HydrothermalVentSimulation {
   async computeFieldStats() {
     try {
       // Read R, O, and H fields from GPU
-      const rBuffer = await this.readBuffer(this.buffers.rField);
+      const rBuffer = await this.readBuffer(this.engine.getCurrentRBuffer());
       const oBuffer = await this.readBuffer(this.engine.getCurrentOBuffer());
       const hBuffer = await this.readBuffer(this.engine.getCurrentHBuffer());
 

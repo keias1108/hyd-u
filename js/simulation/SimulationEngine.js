@@ -9,6 +9,9 @@ export class SimulationEngine {
     this.buffers = buffers;
     this.parameters = parameters;
 
+    // Ping-pong buffer index for R field (0 = A current, 1 = B current)
+    this.rBufferIndex = 0;
+
     // Ping-pong buffer index for O field (0 = A current, 1 = B current)
     this.oBufferIndex = 0;
 
@@ -81,9 +84,10 @@ export class SimulationEngine {
     const bindGroupLayout = this.device.createBindGroupLayout({
       label: 'R Field Bind Group Layout',
       entries: [
-        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
-        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
-        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // rFieldIn
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // rFieldOut
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
       ],
     });
 
@@ -99,17 +103,6 @@ export class SimulationEngine {
         module: shaderModule,
         entryPoint: 'main',
       },
-    });
-
-    // Create bind group
-    this.rBindGroup = this.device.createBindGroup({
-      label: 'R Field Bind Group',
-      layout: bindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.buffers.rField } },
-        { binding: 1, resource: { buffer: this.buffers.gridInfoBuffer } },
-        { binding: 2, resource: { buffer: this.buffers.paramsBuffer } },
-      ],
     });
   }
 
@@ -147,32 +140,7 @@ export class SimulationEngine {
       },
     });
 
-    // Create bind groups for both ping-pong directions
-    // A -> B (read from A, write to B)
-    this.oBindGroupA = this.device.createBindGroup({
-      label: 'O Field Bind Group A',
-      layout: bindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.buffers.oFieldA } },
-        { binding: 1, resource: { buffer: this.buffers.oFieldB } },
-        { binding: 2, resource: { buffer: this.buffers.rField } },
-        { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
-        { binding: 4, resource: { buffer: this.buffers.paramsBuffer } },
-      ],
-    });
-
-    // B -> A (read from B, write to A)
-    this.oBindGroupB = this.device.createBindGroup({
-      label: 'O Field Bind Group B',
-      layout: bindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.buffers.oFieldB } },
-        { binding: 1, resource: { buffer: this.buffers.oFieldA } },
-        { binding: 2, resource: { buffer: this.buffers.rField } },
-        { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
-        { binding: 4, resource: { buffer: this.buffers.paramsBuffer } },
-      ],
-    });
+    // Bind groups are created dynamically in step() to follow ping-pong buffers
   }
 
   /**
@@ -208,31 +176,7 @@ export class SimulationEngine {
       },
     });
 
-    // Create bind groups for both O buffer states
-    // Use O from A (when index = 0 -> wrote to B, so current is B)
-    // Wait, after step: if index was 0, we read A write B, then swap to index 1
-    // So when index = 1, current O is in B
-    this.cBindGroupA = this.device.createBindGroup({
-      label: 'C Field Bind Group A',
-      layout: bindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.buffers.rField } },
-        { binding: 1, resource: { buffer: this.buffers.oFieldB } },  // After A->B swap
-        { binding: 2, resource: { buffer: this.buffers.cField } },
-        { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
-      ],
-    });
-
-    this.cBindGroupB = this.device.createBindGroup({
-      label: 'C Field Bind Group B',
-      layout: bindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.buffers.rField } },
-        { binding: 1, resource: { buffer: this.buffers.oFieldA } },  // After B->A swap
-        { binding: 2, resource: { buffer: this.buffers.cField } },
-        { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
-      ],
-    });
+    // Bind groups are created dynamically in step()
   }
 
   /**
@@ -270,35 +214,7 @@ export class SimulationEngine {
       },
     });
 
-    // Create bind groups for both ping-pong directions
-    // Need 4 bind groups to handle O buffer index (simplified: use 2 and update O buffer dynamically in step())
-    // A -> B (read from A, write to B)
-    this.hBindGroupA = this.device.createBindGroup({
-      label: 'H Field Bind Group A',
-      layout: bindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.buffers.hFieldA } },
-        { binding: 1, resource: { buffer: this.buffers.hFieldB } },
-        { binding: 2, resource: { buffer: this.buffers.rField } },
-        { binding: 3, resource: { buffer: this.buffers.oFieldA } }, // Will need to be updated dynamically
-        { binding: 4, resource: { buffer: this.buffers.gridInfoBuffer } },
-        { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
-      ],
-    });
-
-    // B -> A (read from B, write to A)
-    this.hBindGroupB = this.device.createBindGroup({
-      label: 'H Field Bind Group B',
-      layout: bindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.buffers.hFieldB } },
-        { binding: 1, resource: { buffer: this.buffers.hFieldA } },
-        { binding: 2, resource: { buffer: this.buffers.rField } },
-        { binding: 3, resource: { buffer: this.buffers.oFieldA } }, // Will need to be updated dynamically
-        { binding: 4, resource: { buffer: this.buffers.gridInfoBuffer } },
-        { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
-      ],
-    });
+    // Bind groups are created dynamically in step()
   }
 
   /**
@@ -369,23 +285,55 @@ export class SimulationEngine {
     const workgroupsX = Math.ceil(this.buffers.gridWidth / 8);
     const workgroupsY = Math.ceil(this.buffers.gridHeight / 8);
 
-    // 1. Update R field (forced injection pattern)
+    // 1. Update R field (source + diffusion + optional advection, ping-pong)
     {
       const pass = encoder.beginComputePass({ label: 'Update R Field' });
       pass.setPipeline(this.rPipeline);
-      pass.setBindGroup(0, this.rBindGroup);
+
+      const currentRBuffer = this.buffers.getRBufferCurrent(this.rBufferIndex);
+      const nextRBuffer = this.buffers.getRBufferNext(this.rBufferIndex);
+
+      const rBindGroup = this.device.createBindGroup({
+        label: 'R Field Bind Group (dynamic)',
+        layout: this.rPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentRBuffer } },
+          { binding: 1, resource: { buffer: nextRBuffer } },
+          { binding: 2, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 3, resource: { buffer: this.buffers.paramsBuffer } },
+        ],
+      });
+
+      pass.setBindGroup(0, rBindGroup);
       pass.dispatchWorkgroups(workgroupsX, workgroupsY);
       pass.end();
     }
 
-    // 2. Update O field (relaxation with ping-pong)
+    // Swap R buffer index
+    this.rBufferIndex = 1 - this.rBufferIndex;
+
+    // 2. Update O field (relaxation + reaction + diffusion with ping-pong)
     {
       const pass = encoder.beginComputePass({ label: 'Update O Field' });
       pass.setPipeline(this.oPipeline);
 
-      // Use appropriate bind group based on current buffer index
-      const bindGroup = this.oBufferIndex === 0 ? this.oBindGroupA : this.oBindGroupB;
-      pass.setBindGroup(0, bindGroup);
+      const currentOBuffer = this.buffers.getOBufferCurrent(this.oBufferIndex);
+      const nextOBuffer = this.buffers.getOBufferNext(this.oBufferIndex);
+      const currentRBuffer = this.buffers.getRBufferCurrent(this.rBufferIndex);
+
+      const oBindGroup = this.device.createBindGroup({
+        label: 'O Field Bind Group (dynamic)',
+        layout: this.oPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentOBuffer } },
+          { binding: 1, resource: { buffer: nextOBuffer } },
+          { binding: 2, resource: { buffer: currentRBuffer } },
+          { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 4, resource: { buffer: this.buffers.paramsBuffer } },
+        ],
+      });
+
+      pass.setBindGroup(0, oBindGroup);
 
       pass.dispatchWorkgroups(workgroupsX, workgroupsY);
       pass.end();
@@ -399,9 +347,21 @@ export class SimulationEngine {
       const pass = encoder.beginComputePass({ label: 'Compute C Field' });
       pass.setPipeline(this.cPipeline);
 
-      // Use appropriate bind group (now index points to newly written O buffer)
-      const bindGroup = this.oBufferIndex === 0 ? this.cBindGroupB : this.cBindGroupA;
-      pass.setBindGroup(0, bindGroup);
+      const currentOBuffer = this.buffers.getOBufferCurrent(this.oBufferIndex);
+      const currentRBuffer = this.buffers.getRBufferCurrent(this.rBufferIndex);
+
+      const cBindGroup = this.device.createBindGroup({
+        label: 'C Field Bind Group (dynamic)',
+        layout: this.cPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentRBuffer } },
+          { binding: 1, resource: { buffer: currentOBuffer } },
+          { binding: 2, resource: { buffer: this.buffers.cField } },
+          { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
+        ],
+      });
+
+      pass.setBindGroup(0, cBindGroup);
 
       pass.dispatchWorkgroups(workgroupsX, workgroupsY);
       pass.end();
@@ -425,7 +385,7 @@ export class SimulationEngine {
         entries: [
           { binding: 0, resource: { buffer: currentHBuffer } },
           { binding: 1, resource: { buffer: nextHBuffer } },
-          { binding: 2, resource: { buffer: this.buffers.rField } },
+          { binding: 2, resource: { buffer: this.buffers.getRBufferCurrent(this.rBufferIndex) } },
           { binding: 3, resource: { buffer: currentOBuffer } },
           { binding: 4, resource: { buffer: this.buffers.gridInfoBuffer } },
           { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
@@ -465,6 +425,13 @@ export class SimulationEngine {
    */
   getCurrentOBuffer() {
     return this.oBufferIndex === 0 ? this.buffers.oFieldA : this.buffers.oFieldB;
+  }
+
+  /**
+   * Get current R buffer for rendering/stats
+   */
+  getCurrentRBuffer() {
+    return this.rBufferIndex === 0 ? this.buffers.rFieldA : this.buffers.rFieldB;
   }
 
   /**

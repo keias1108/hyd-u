@@ -14,9 +14,15 @@ struct SimParams {
   rMaxStrength: f32,
   rDecayRadius: f32,
   rFalloffPower: f32,
+  rDiffusionRate: f32,
+  rDecayRate: f32,
+  rAdvectionEnabled: f32,
+  rAdvectionVX: f32,
+  rAdvectionVY: f32,
   o0: f32,
   oRelaxationRate: f32,
   restoreRate: f32,
+  oDiffusionRate: f32,
   reactionRate: f32,
   h0: f32,
   hDecayRate: f32,
@@ -45,7 +51,29 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   let currentO = oFieldIn[idx];
   let currentR = rField[idx];
 
-  // Reaction flux calculation
+  // 5-point stencil Laplacian for O diffusion (Neumann-like boundaries)
+  var left = currentO;
+  var right = currentO;
+  var up = currentO;
+  var down = currentO;
+
+  if (x > 0u) {
+    left = oFieldIn[idx - 1u];
+  }
+  if (x < gridInfo.width - 1u) {
+    right = oFieldIn[idx + 1u];
+  }
+  if (y > 0u) {
+    up = oFieldIn[idx - gridInfo.width];
+  }
+  if (y < gridInfo.height - 1u) {
+    down = oFieldIn[idx + gridInfo.width];
+  }
+
+  let laplacian = left + right + up + down - 4.0 * currentO;
+  let diffusion = params.oDiffusionRate * laplacian * params.deltaTime;
+
+  // Reaction flux calculation (nonlinear R·O)
   let C = currentR * currentO;
   let F_raw = params.reactionRate * C;
   let F = min(F_raw, currentO / params.deltaTime); // Prevent O from going negative
@@ -53,7 +81,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   // O update: restoration - reaction consumption
   let restore = params.restoreRate * (params.o0 - currentO) * params.deltaTime;
   let consumption = F * params.deltaTime;
-  let newO = currentO + restore - consumption;
+  let newO = currentO + restore + diffusion - consumption;
 
   // Clamp to valid range [0, 1]
   oFieldOut[idx] = clamp(newO, 0.0, 1.0);

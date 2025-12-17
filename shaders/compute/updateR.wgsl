@@ -1,5 +1,5 @@
 // R Field Update Shader
-// Maintains central injection pattern (forced, not evolved)
+// Source injection + diffusion + optional (time-varying) advection
 
 struct GridInfo {
   width: u32,
@@ -14,15 +14,27 @@ struct SimParams {
   rMaxStrength: f32,
   rDecayRadius: f32,
   rFalloffPower: f32,
+  rDiffusionRate: f32,
+  rDecayRate: f32,
+  rAdvectionEnabled: f32,
+  rAdvectionVX: f32,
+  rAdvectionVY: f32,
   o0: f32,
   oRelaxationRate: f32,
+  restoreRate: f32,
+  oDiffusionRate: f32,
+  reactionRate: f32,
+  h0: f32,
+  hDecayRate: f32,
+  hDiffusionRate: f32,
   deltaTime: f32,
   currentTime: f32,
 }
 
-@group(0) @binding(0) var<storage, read_write> rField: array<f32>;
-@group(0) @binding(1) var<uniform> gridInfo: GridInfo;
-@group(0) @binding(2) var<uniform> params: SimParams;
+@group(0) @binding(0) var<storage, read> rFieldIn: array<f32>;
+@group(0) @binding(1) var<storage, read_write> rFieldOut: array<f32>;
+@group(0) @binding(2) var<uniform> gridInfo: GridInfo;
+@group(0) @binding(3) var<uniform> params: SimParams;
 
 // Smoothstep function for smooth falloff
 fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
@@ -41,6 +53,26 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   }
 
   let idx = y * gridInfo.width + x;
+  let currentR = rFieldIn[idx];
+
+  // Neighbors for diffusion/advection
+  var left = currentR;
+  var right = currentR;
+  var up = currentR;
+  var down = currentR;
+
+  if (x > 0u) {
+    left = rFieldIn[idx - 1u];
+  }
+  if (x < gridInfo.width - 1u) {
+    right = rFieldIn[idx + 1u];
+  }
+  if (y > 0u) {
+    up = rFieldIn[idx - gridInfo.width];
+  }
+  if (y < gridInfo.height - 1u) {
+    down = rFieldIn[idx + gridInfo.width];
+  }
 
   // Calculate distance from injection center
   let dx = f32(x) - params.rCenterX;
@@ -57,6 +89,34 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   // Apply power curve for falloff shape control
   let strengthFactor = pow(falloff, params.rFalloffPower);
 
-  // Force R field to injection pattern
-  rField[idx] = params.rMaxStrength * strengthFactor;
+  // Source injection (adds material)
+  let source = params.rMaxStrength * strengthFactor;
+
+  // Diffusion
+  let laplacian = left + right + up + down - 4.0 * currentR;
+  let diffusion = params.rDiffusionRate * laplacian * params.deltaTime;
+
+  // Optional advection (simple central difference approximation)
+  var advection = 0.0;
+  if (params.rAdvectionEnabled > 0.5) {
+    let dRdx = (right - left) * 0.5;
+    let dRdy = (down - up) * 0.5;
+
+    // Time-varying rotation of the velocity vector for simple unsteady flow
+    let angle = params.currentTime * 0.5; // rad/sec factor
+    let c = cos(angle);
+    let s = sin(angle);
+    let vx = params.rAdvectionVX * c - params.rAdvectionVY * s;
+    let vy = params.rAdvectionVX * s + params.rAdvectionVY * c;
+
+    advection = -(vx * dRdx + vy * dRdy) * params.deltaTime;
+  }
+
+  // Decay to prevent unbounded fill
+  let decay = currentR * params.rDecayRate * params.deltaTime;
+
+  let newR = currentR + source * params.deltaTime + diffusion + advection - decay;
+
+  // Clamp to [0, 1]
+  rFieldOut[idx] = clamp(newR, 0.0, 1.0);
 }
