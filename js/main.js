@@ -32,7 +32,7 @@ class HydrothermalVentSimulation {
     // Stats tracking
     this.lastStatsUpdate = 0;
     this.statsUpdateInterval = 100; // Update stats every 100ms
-    this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0 };
+    this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0, mTotal: 0, bTotal: 0 };
   }
 
   /**
@@ -320,23 +320,29 @@ class HydrothermalVentSimulation {
       const rBuffer = await this.readBuffer(this.engine.getCurrentRBuffer());
       const oBuffer = await this.readBuffer(this.engine.getCurrentOBuffer());
       const hBuffer = await this.readBuffer(this.engine.getCurrentHBuffer());
+      const mBuffer = await this.readBuffer(this.engine.getCurrentMBuffer());
+      const bBuffer = await this.readBuffer(this.buffers.bField);
 
       // Calculate statistics
       let rTotal = 0;
       let oSum = 0;
       let hSum = 0;
+      let mTotal = 0;
+      let bTotal = 0;
       const gridSize = this.parameters.get('gridWidth') * this.parameters.get('gridHeight');
 
       for (let i = 0; i < gridSize; i++) {
         rTotal += rBuffer[i];
         oSum += oBuffer[i];
         hSum += hBuffer[i];
+        mTotal += mBuffer[i];
+        bTotal += bBuffer[i];
       }
 
       const oAvg = oSum / gridSize;
       const hAvg = hSum / gridSize;
 
-      return { rTotal, oAvg, hAvg };
+      return { rTotal, oAvg, hAvg, mTotal, bTotal };
     } catch (error) {
       console.error('Failed to compute field stats:', error);
       return this.currentStats; // Return last valid stats
@@ -350,6 +356,8 @@ class HydrothermalVentSimulation {
     const oAvgEl = document.getElementById('o-avg');
     const rTotalEl = document.getElementById('r-total');
     const hAvgEl = document.getElementById('h-avg');
+    const mTotalEl = document.getElementById('m-total');
+    const bTotalEl = document.getElementById('b-total');
 
     if (oAvgEl) {
       oAvgEl.textContent = this.currentStats.oAvg.toFixed(3);
@@ -359,6 +367,12 @@ class HydrothermalVentSimulation {
     }
     if (hAvgEl) {
       hAvgEl.textContent = this.currentStats.hAvg.toFixed(3);
+    }
+    if (mTotalEl) {
+      mTotalEl.textContent = this.currentStats.mTotal.toFixed(1);
+    }
+    if (bTotalEl) {
+      bTotalEl.textContent = this.currentStats.bTotal.toFixed(1);
     }
   }
 

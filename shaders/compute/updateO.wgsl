@@ -29,6 +29,7 @@ struct SimParams {
   hDiffusionRate: f32,
   mGrowRate: f32,
   mDeathRate: f32,
+  bDecayRate: f32,
   deltaTime: f32,
   currentTime: f32,
 }
@@ -96,6 +97,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   oFieldOut[idx] = clamp(newO, 0.0, 1.0);
 
   // Update B: accumulate fixed portion
-  let newB = currentB + F_fix * params.deltaTime;
+  // B update: accumulate fixed portion and natural decay
+  let newB = currentB + F_fix * params.deltaTime - currentB * params.bDecayRate * params.deltaTime;
   bField[idx] = clamp(newB, 0.0, 10.0);
 }

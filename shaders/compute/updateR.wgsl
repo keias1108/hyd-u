@@ -29,6 +29,7 @@ struct SimParams {
   hDiffusionRate: f32,
   mGrowRate: f32,
   mDeathRate: f32,
+  bDecayRate: f32,
   deltaTime: f32,
   currentTime: f32,
 }

@@ -55,6 +55,7 @@ export const PARAMETER_DEFS = [
   // M Field (microbe/biomass)
   new ParameterDefinition('mGrowRate', 0.5, 0, 5, 0.01, 'M Field', 'M growth rate from B'),
   new ParameterDefinition('mDeathRate', 0.05, 0, 1, 0.01, 'M Field', 'M death rate'),
+  new ParameterDefinition('bDecayRate', 0.03, 0, 1, 0.01, 'M Field', 'B decay rate (sink to environment)'),
 
   // Simulation
   new ParameterDefinition('deltaTime', 0.016, 0.001, 0.1, 0.001, 'Simulation', 'Time step'),
@@ -155,6 +156,7 @@ export class SimulationParameters {
     // M field parameters
     data[offset++] = this.values.mGrowRate;
     data[offset++] = this.values.mDeathRate;
+    data[offset++] = this.values.bDecayRate;
 
     // Simulation parameters
     data[offset++] = this.values.deltaTime;
