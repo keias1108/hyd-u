@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hydrothermal Vent Simulation - WebGPU</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Hydrothermal Vent Simulation</h1>
+      <p class="subtitle">WebGPU Compute-based R-O Field Model</p>
+      <div id="simulation-controls">
+        <button id="startButton" class="btn btn-primary">Start</button>
+        <button id="resetButton" class="btn btn-secondary">Reset</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="canvas-container">
+        <canvas id="renderCanvas" width="512" height="512"></canvas>
+        <div id="info-panel">
+          <div id="fps-counter">FPS: --</div>
+          <div id="field-info">Field: R (Reducing substance)</div>
+        </div>
+      </div>
+
+      <aside id="controls-panel">
+        <h2>Parameters</h2>
+        <div id="controls"></div>
+      </aside>
+    </main>
+
+    <footer>
+      <p>R: Reducing substance (central injection) | O: Oxidizing substance (relaxes to O₀) | C: R × O overlap</p>
+    </footer>
+  </div>
+
+  <div id="error-message" class="hidden">
+    <h2>WebGPU Not Available</h2>
+    <p>This simulation requires WebGPU support. Please use a browser that supports WebGPU (Chrome 113+, Edge 113+).</p>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

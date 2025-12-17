@@ -1,0 +1,266 @@
+/**
+ * Main Application Entry Point
+ * Initializes and runs the hydrothermal vent simulation
+ */
+
+import { WebGPUContext } from './webgpu/context.js';
+import { SimulationBuffers } from './webgpu/buffers.js';
+import { SimulationParameters } from './simulation/parameters.js';
+import { SimulationEngine } from './simulation/SimulationEngine.js';
+import { Renderer } from './rendering/Renderer.js';
+import { Controls } from './ui/Controls.js';
+
+class HydrothermalVentSimulation {
+  constructor() {
+    this.isRunning = false;
+    this.parameters = new SimulationParameters();
+
+    // WebGPU components
+    this.gpuContext = null;
+    this.buffers = null;
+    this.engine = null;
+    this.renderer = null;
+    this.controls = null;
+
+    // FPS tracking
+    this.lastFrameTime = 0;
+    this.frameCount = 0;
+    this.fps = 0;
+    this.fpsUpdateInterval = 500; // Update FPS display every 500ms
+    this.lastFpsUpdate = 0;
+  }
+
+  /**
+   * Initialize the simulation
+   */
+  async initialize() {
+    try {
+      console.log('Initializing hydrothermal vent simulation...');
+
+      // 1. Initialize WebGPU context
+      this.gpuContext = new WebGPUContext();
+      const success = await this.gpuContext.initialize();
+      if (!success) {
+        throw new Error('Failed to initialize WebGPU');
+      }
+
+      // 2. Create buffers
+      const gridWidth = this.parameters.get('gridWidth');
+      const gridHeight = this.parameters.get('gridHeight');
+
+      this.buffers = new SimulationBuffers(
+        this.gpuContext.device,
+        gridWidth,
+        gridHeight
+      );
+
+      // 3. Initialize field data
+      this.buffers.initializeRField();
+      this.buffers.initializeOField(this.parameters.get('o0'));
+      this.buffers.initializeCField();
+
+      // 4. Initialize simulation engine
+      this.engine = new SimulationEngine(
+        this.gpuContext.device,
+        this.buffers,
+        this.parameters
+      );
+      await this.engine.init();
+
+      // 5. Initialize renderer
+      this.renderer = new Renderer(
+        this.gpuContext.device,
+        this.gpuContext.context,
+        this.buffers,
+        this.parameters,
+        this.engine
+      );
+      await this.renderer.init();
+
+      // 6. Setup UI controls
+      this.setupUI();
+
+      // 7. Update GPU buffers with initial parameters
+      this.updateParameters();
+
+      // 8. Render initial frame
+      this.renderer.render();
+
+      console.log('Simulation initialized successfully');
+
+      // Auto-start
+      this.start();
+
+    } catch (error) {
+      console.error('Initialization failed:', error);
+      this.showError(error.message);
+    }
+  }
+
+  /**
+   * Setup UI controls
+   */
+  setupUI() {
+    const controlsContainer = document.getElementById('controls');
+    this.controls = new Controls(this.parameters, (name, value) => {
+      this.onParameterChange(name, value);
+    });
+    this.controls.createUI(controlsContainer);
+
+    // Start/Stop button
+    const startButton = document.getElementById('startButton');
+    startButton.addEventListener('click', () => this.toggleSimulation());
+
+    // Reset button
+    const resetButton = document.getElementById('resetButton');
+    resetButton.addEventListener('click', () => this.reset());
+  }
+
+  /**
+   * Update GPU buffers when parameters change
+   */
+  updateParameters() {
+    // Update simulation parameters buffer
+    const paramsData = this.parameters.toUniformData();
+    this.buffers.updateParamsBuffer(paramsData);
+
+    // Update render parameters buffer
+    const renderParamsData = this.parameters.toRenderUniformData();
+    this.buffers.updateRenderParamsBuffer(renderParamsData);
+  }
+
+  /**
+   * Handle parameter change from UI
+   */
+  onParameterChange(name, value) {
+    console.log(`Parameter changed: ${name} = ${value}`);
+
+    // Special handling for O0 change - reinitialize O field
+    if (name === 'o0') {
+      this.buffers.initializeOField(value);
+    }
+
+    this.updateParameters();
+  }
+
+  /**
+   * Toggle simulation running state
+   */
+  toggleSimulation() {
+    if (this.isRunning) {
+      this.pause();
+    } else {
+      this.start();
+    }
+  }
+
+  /**
+   * Start simulation
+   */
+  start() {
+    this.isRunning = true;
+    document.getElementById('startButton').textContent = 'Pause';
+    this.lastFrameTime = performance.now();
+    this.lastFpsUpdate = this.lastFrameTime;
+    this.animate();
+    console.log('Simulation started');
+  }
+
+  /**
+   * Pause simulation
+   */
+  pause() {
+    this.isRunning = false;
+    document.getElementById('startButton').textContent = 'Start';
+    console.log('Simulation paused');
+  }
+
+  /**
+   * Reset simulation
+   */
+  reset() {
+    console.log('Resetting simulation...');
+
+    // Reinitialize fields
+    this.buffers.initializeRField();
+    this.buffers.initializeOField(this.parameters.get('o0'));
+    this.buffers.initializeCField();
+
+    // Reset engine frame count
+    this.engine.frameCount = 0;
+    this.engine.oBufferIndex = 0;
+
+    // Reset FPS counter
+    this.frameCount = 0;
+    this.fps = 0;
+
+    // Update display
+    this.updateParameters();
+    this.renderer.render();
+
+    console.log('Simulation reset');
+  }
+
+  /**
+   * Main animation loop
+   */
+  animate() {
+    if (!this.isRunning) return;
+
+    const now = performance.now();
+
+    // Update simulation
+    this.engine.step();
+
+    // Render
+    this.renderer.render();
+
+    // Update FPS
+    this.frameCount++;
+    if (now - this.lastFpsUpdate >= this.fpsUpdateInterval) {
+      this.fps = Math.round((this.frameCount * 1000) / (now - this.lastFpsUpdate));
+      this.frameCount = 0;
+      this.lastFpsUpdate = now;
+      this.updateFpsDisplay();
+    }
+
+    this.lastFrameTime = now;
+
+    // Continue loop
+    requestAnimationFrame(() => this.animate());
+  }
+
+  /**
+   * Update FPS display
+   */
+  updateFpsDisplay() {
+    const fpsCounter = document.getElementById('fps-counter');
+    if (fpsCounter) {
+      fpsCounter.textContent = `FPS: ${this.fps}`;
+    }
+  }
+
+  /**
+   * Show error message
+   */
+  showError(message) {
+    const errorDiv = document.getElementById('error-message');
+    const appDiv = document.getElementById('app');
+
+    if (errorDiv && appDiv) {
+      errorDiv.classList.remove('hidden');
+      appDiv.style.display = 'none';
+
+      const errorText = errorDiv.querySelector('p');
+      if (errorText) {
+        errorText.textContent = message;
+      }
+    }
+  }
+}
+
+// Entry point
+window.addEventListener('DOMContentLoaded', async () => {
+  const simulation = new HydrothermalVentSimulation();
+  await simulation.initialize();
+});
