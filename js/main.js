@@ -32,7 +32,7 @@ class HydrothermalVentSimulation {
     // Stats tracking
     this.lastStatsUpdate = 0;
     this.statsUpdateInterval = 100; // Update stats every 100ms
-    this.currentStats = { rTotal: 0, oAvg: 0.8 };
+    this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0 };
   }
 
   /**
@@ -63,6 +63,7 @@ class HydrothermalVentSimulation {
       this.buffers.initializeRField();
       this.buffers.initializeOField(this.parameters.get('o0'));
       this.buffers.initializeCField();
+      this.buffers.initializeHField(this.parameters.get('h0'));
 
       // 4. Initialize simulation engine
       this.engine = new SimulationEngine(
@@ -140,9 +141,12 @@ class HydrothermalVentSimulation {
   onParameterChange(name, value) {
     console.log(`Parameter changed: ${name} = ${value}`);
 
-    // Special handling for O0 change - reinitialize O field
+    // Special handling for field background values - reinitialize fields
     if (name === 'o0') {
       this.buffers.initializeOField(value);
+    }
+    if (name === 'h0') {
+      this.buffers.initializeHField(value);
     }
 
     this.updateParameters();
@@ -190,10 +194,12 @@ class HydrothermalVentSimulation {
     this.buffers.initializeRField();
     this.buffers.initializeOField(this.parameters.get('o0'));
     this.buffers.initializeCField();
+    this.buffers.initializeHField(this.parameters.get('h0'));
 
-    // Reset engine frame count
+    // Reset engine frame count and buffer indices
     this.engine.frameCount = 0;
     this.engine.oBufferIndex = 0;
+    this.engine.hBufferIndex = 0;
 
     // Reset FPS counter
     this.frameCount = 0;
@@ -292,23 +298,27 @@ class HydrothermalVentSimulation {
    */
   async computeFieldStats() {
     try {
-      // Read R and O fields from GPU
+      // Read R, O, and H fields from GPU
       const rBuffer = await this.readBuffer(this.buffers.rField);
       const oBuffer = await this.readBuffer(this.engine.getCurrentOBuffer());
+      const hBuffer = await this.readBuffer(this.engine.getCurrentHBuffer());
 
       // Calculate statistics
       let rTotal = 0;
       let oSum = 0;
+      let hSum = 0;
       const gridSize = this.parameters.get('gridWidth') * this.parameters.get('gridHeight');
 
       for (let i = 0; i < gridSize; i++) {
         rTotal += rBuffer[i];
         oSum += oBuffer[i];
+        hSum += hBuffer[i];
       }
 
       const oAvg = oSum / gridSize;
+      const hAvg = hSum / gridSize;
 
-      return { rTotal, oAvg };
+      return { rTotal, oAvg, hAvg };
     } catch (error) {
       console.error('Failed to compute field stats:', error);
       return this.currentStats; // Return last valid stats
@@ -321,12 +331,16 @@ class HydrothermalVentSimulation {
   updateStatsDisplay() {
     const oAvgEl = document.getElementById('o-avg');
     const rTotalEl = document.getElementById('r-total');
+    const hAvgEl = document.getElementById('h-avg');
 
     if (oAvgEl) {
       oAvgEl.textContent = this.currentStats.oAvg.toFixed(3);
     }
     if (rTotalEl) {
       rTotalEl.textContent = this.currentStats.rTotal.toFixed(1);
+    }
+    if (hAvgEl) {
+      hAvgEl.textContent = this.currentStats.hAvg.toFixed(3);
     }
   }
 

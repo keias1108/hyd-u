@@ -48,7 +48,20 @@ export class SimulationBuffers {
       label: 'C Field Buffer'
     });
 
-    console.log(`Created field buffers: ${this.gridWidth}x${this.gridHeight} = ${this.gridSize} cells`);
+    // H field (ping-pong for diffusion)
+    this.hFieldA = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'H Field Buffer A'
+    });
+
+    this.hFieldB = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'H Field Buffer B'
+    });
+
+    console.log(`Created field buffers including H field: ${this.gridWidth}x${this.gridHeight} = ${this.gridSize} cells`);
   }
 
   /**
@@ -152,5 +165,32 @@ export class SimulationBuffers {
    */
   getOBufferNext(index) {
     return index === 0 ? this.oFieldB : this.oFieldA;
+  }
+
+  /**
+   * Initialize H field to background concentration h0
+   */
+  initializeHField(h0) {
+    const data = new Float32Array(this.gridSize);
+    data.fill(h0);
+
+    this.device.queue.writeBuffer(this.hFieldA, 0, data);
+    this.device.queue.writeBuffer(this.hFieldB, 0, data);
+
+    console.log(`Initialized H field to ${h0}`);
+  }
+
+  /**
+   * Get current H buffer based on ping-pong index
+   */
+  getHBufferCurrent(index) {
+    return index === 0 ? this.hFieldA : this.hFieldB;
+  }
+
+  /**
+   * Get next H buffer based on ping-pong index
+   */
+  getHBufferNext(index) {
+    return index === 0 ? this.hFieldB : this.hFieldA;
   }
 }

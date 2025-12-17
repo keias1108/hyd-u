@@ -37,18 +37,27 @@ export const PARAMETER_DEFS = [
   new ParameterDefinition('o0', 0.8, 0, 1, 0.01, 'O Field', 'Background O₀'),
   new ParameterDefinition('oRelaxationRate', 0.1, 0, 1, 0.01, 'O Field', 'Relaxation rate'),
 
+  // Reaction
+  new ParameterDefinition('reactionRate', 0.1, 0, 2, 0.01, 'Reaction', '반응 계수'),
+  new ParameterDefinition('restoreRate', 0.1, 0, 1, 0.01, 'Reaction', 'O 복원율'),
+
+  // H Field (Heat/Loss trace)
+  new ParameterDefinition('h0', 0.0, 0, 1, 0.01, 'H Field', 'H 배경 농도'),
+  new ParameterDefinition('hDecayRate', 0.02, 0, 1, 0.01, 'H Field', 'H 감쇠율'),
+  new ParameterDefinition('hDiffusionRate', 0.1, 0, 1, 0.01, 'H Field', 'H 확산율'),
+
   // Simulation
   new ParameterDefinition('deltaTime', 0.016, 0.001, 0.1, 0.001, 'Simulation', 'Time step'),
 
   // Visualization
-  new ParameterDefinition('visualizationMode', 0, 0, 2, 1, 'Visualization', 'Display mode'),
+  new ParameterDefinition('visualizationMode', 0, 0, 3, 1, 'Visualization', 'Display mode'),
   new ParameterDefinition('colorScheme', 1, 0, 2, 1, 'Visualization', 'Color scheme'),
 ];
 
 /**
  * Visualization mode labels
  */
-export const VIZ_MODE_LABELS = ['R Field', 'O Field', 'C=R×O Overlap'];
+export const VIZ_MODE_LABELS = ['R Field', 'O Field', 'H Field', 'C=R×O Overlap'];
 
 /**
  * Color scheme labels
@@ -107,23 +116,31 @@ export class SimulationParameters {
     const data = new Float32Array(64); // 256 bytes / 4 = 64 floats
     let offset = 0;
 
-    // R field parameters
+    // R field parameters (offset 0-4)
     data[offset++] = this.values.rCenterX;
     data[offset++] = this.values.rCenterY;
     data[offset++] = this.values.rMaxStrength;
     data[offset++] = this.values.rDecayRadius;
     data[offset++] = this.values.rFalloffPower;
 
-    // O field parameters
+    // O field parameters (offset 5-7)
     data[offset++] = this.values.o0;
     data[offset++] = this.values.oRelaxationRate;
+    data[offset++] = this.values.restoreRate;
 
-    // Simulation parameters
+    // Reaction parameters (offset 8)
+    data[offset++] = this.values.reactionRate;
+
+    // H field parameters (offset 9-11)
+    data[offset++] = this.values.h0;
+    data[offset++] = this.values.hDecayRate;
+    data[offset++] = this.values.hDiffusionRate;
+
+    // Simulation parameters (offset 12-13)
     data[offset++] = this.values.deltaTime;
     data[offset++] = performance.now() / 1000.0; // currentTime in seconds
 
-    // Padding for alignment (reserved for future parameters)
-    // offset now at 9, pad to 16 for alignment
+    // Padding for alignment (offset 14-15)
     while (offset < 16) {
       data[offset++] = 0.0;
     }

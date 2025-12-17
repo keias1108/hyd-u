@@ -9,7 +9,7 @@ struct GridInfo {
 }
 
 struct RenderParams {
-  visualizationMode: u32,  // 0=R, 1=O, 2=C
+  visualizationMode: u32,  // 0=R, 1=O, 2=H, 3=C
   colorScheme: u32,        // 0=grayscale, 1=heatmap, 2=viridis
   padding0: u32,
   padding1: u32,
@@ -118,9 +118,10 @@ fn applyColorScheme(value: f32, scheme: u32) -> vec4<f32> {
 
 @group(0) @binding(0) var<storage, read> rField: array<f32>;
 @group(0) @binding(1) var<storage, read> oField: array<f32>;
-@group(0) @binding(2) var<storage, read> cField: array<f32>;
-@group(0) @binding(3) var<uniform> gridInfo: GridInfo;
-@group(0) @binding(4) var<uniform> renderParams: RenderParams;
+@group(0) @binding(2) var<storage, read> hField: array<f32>;
+@group(0) @binding(3) var<storage, read> cField: array<f32>;
+@group(0) @binding(4) var<uniform> gridInfo: GridInfo;
+@group(0) @binding(5) var<uniform> renderParams: RenderParams;
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
@@ -135,6 +136,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     value = rField[idx];  // R field
   } else if (renderParams.visualizationMode == 1u) {
     value = oField[idx];  // O field
+  } else if (renderParams.visualizationMode == 2u) {
+    value = hField[idx] / 10.0;  // H field (normalized from 0-10 to 0-1)
   } else {
     value = cField[idx];  // C = R * O overlap
   }
