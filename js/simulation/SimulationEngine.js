@@ -595,6 +595,13 @@ export class SimulationEngine {
   }
 
   /**
+   * Get current P buffer for stats
+   */
+  getCurrentPBuffer() {
+    return this.pBufferIndex === 0 ? this.buffers.particleBufferA : this.buffers.particleBufferB;
+  }
+
+  /**
    * Get current H buffer for rendering
    */
   getCurrentHBuffer() {
