@@ -57,6 +57,19 @@ export const PARAMETER_DEFS = [
   new ParameterDefinition('mDeathRate', 0.05, 0, 1, 0.01, 'M Field', 'M death rate'),
   new ParameterDefinition('bDecayRate', 0.03, 0, 1, 0.01, 'M Field', 'B decay rate (sink to environment)'),
 
+  // Particle Agents (P)
+  new ParameterDefinition('pCount', 4000, 0, 16384, 256, 'Particles', 'Particle count (active)'),
+  new ParameterDefinition('pBiasStrength', 0.8, 0, 5, 0.01, 'Particles', 'Bias toward ∇B'),
+  new ParameterDefinition('pFriction', 0.2, 0, 2, 0.01, 'Particles', 'Velocity friction'),
+  new ParameterDefinition('pNoiseStrength', 0.1, 0, 2, 0.01, 'Particles', 'Random walk strength'),
+  new ParameterDefinition('pSpeed', 1.0, 0, 5, 0.01, 'Particles', 'Movement speed scale'),
+  new ParameterDefinition('pEatEnabled', 0, 0, 1, 1, 'Particles', 'Particle eating ON/OFF'),
+  new ParameterDefinition('pEatAmount', 0.001, 0, 0.05, 0.0005, 'Particles', 'B consumption per step'),
+  new ParameterDefinition('pPointSize', 2.0, 1, 8, 0.5, 'Particles', 'Particle point size (px)'),
+  new ParameterDefinition('pEnergyDecayRate', 0.001, 0, 0.1, 0.0001, 'Particles', 'Energy decay per step'),
+  new ParameterDefinition('pEnergyFromEat', 0.05, 0, 0.5, 0.001, 'Particles', 'Energy gain coefficient from B consumption'),
+  new ParameterDefinition('pMinEnergy', 0.1, 0, 1, 0.01, 'Particles', 'Minimum energy threshold for survival'),
+
   // Simulation
   new ParameterDefinition('deltaTime', 0.016, 0.001, 0.1, 0.001, 'Simulation', 'Time step'),
 
@@ -164,6 +177,32 @@ export class SimulationParameters {
 
     // Padding for alignment
     while (offset < 32) {
+      data[offset++] = 0.0;
+    }
+
+    return data;
+  }
+
+  /**
+   * Serialize particle parameters to Float32Array (separate uniform buffer)
+   */
+  toParticleUniformData() {
+    const data = new Float32Array(16);
+    let offset = 0;
+
+    data[offset++] = this.values.pCount;
+    data[offset++] = this.values.pBiasStrength;
+    data[offset++] = this.values.pFriction;
+    data[offset++] = this.values.pNoiseStrength;
+    data[offset++] = this.values.pSpeed;
+    data[offset++] = this.values.pEatEnabled;
+    data[offset++] = this.values.pEatAmount;
+    data[offset++] = this.values.pPointSize;
+    data[offset++] = this.values.pEnergyDecayRate;
+    data[offset++] = this.values.pEnergyFromEat;
+    data[offset++] = this.values.pMinEnergy;
+
+    while (offset < data.length) {
       data[offset++] = 0.0;
     }
 

@@ -24,6 +24,9 @@ export class SimulationEngine {
     // Ping-pong buffer index for H field (0 = A current, 1 = B current)
     this.hBufferIndex = 0;
 
+    // Ping-pong buffer index for Particles
+    this.pBufferIndex = 0;
+
     // Frame counter
     this.frameCount = 0;
 
@@ -34,6 +37,7 @@ export class SimulationEngine {
     this.mPipeline = null;
     this.hPipeline = null;
     this.hDiffusePipeline = null;
+    this.pPipeline = null;
 
     // Bind groups
     this.rBindGroup = null;
@@ -58,6 +62,7 @@ export class SimulationEngine {
     const updateMCode = await this.loadShader('shaders/compute/updateM.wgsl');
     const updateHCode = await this.loadShader('shaders/compute/updateH.wgsl');
     const diffuseHCode = await this.loadShader('shaders/compute/diffuseH.wgsl');
+    const updatePCode = await this.loadShader('shaders/compute/updateP.wgsl');
 
     // Create pipelines
     await this.createRPipeline(updateRCode);
@@ -66,6 +71,7 @@ export class SimulationEngine {
     await this.createMPipeline(updateMCode);
     await this.createHPipeline(updateHCode);
     await this.createHDiffusePipeline(diffuseHCode);
+    await this.createPPipeline(updatePCode);
 
     console.log('Simulation engine initialized with H field');
   }
@@ -322,6 +328,42 @@ export class SimulationEngine {
   }
 
   /**
+   * Create Particle update pipeline
+   */
+  async createPPipeline(code) {
+    const shaderModule = this.device.createShaderModule({
+      label: 'Particle Update Shader',
+      code: code,
+    });
+
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Particle Bind Group Layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // particlesIn
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // particlesOut
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // bField
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // particleParams
+        { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // simParams
+      ],
+    });
+
+    const pipelineLayout = this.device.createPipelineLayout({
+      label: 'Particle Pipeline Layout',
+      bindGroupLayouts: [bindGroupLayout],
+    });
+
+    this.pPipeline = this.device.createComputePipeline({
+      label: 'Particle Compute Pipeline',
+      layout: pipelineLayout,
+      compute: {
+        module: shaderModule,
+        entryPoint: 'main',
+      },
+    });
+  }
+
+  /**
    * Execute one simulation step
    */
   step() {
@@ -496,6 +538,37 @@ export class SimulationEngine {
     // Swap M buffer index
     this.mBufferIndex = 1 - this.mBufferIndex;
 
+    // 7. Update Particles (follow ∇B)
+    {
+      const pass = encoder.beginComputePass({ label: 'Update P Particles' });
+      pass.setPipeline(this.pPipeline);
+
+      const currentPBuffer = this.buffers.getParticleBufferCurrent(this.pBufferIndex);
+      const nextPBuffer = this.buffers.getParticleBufferNext(this.pBufferIndex);
+
+      const pBindGroup = this.device.createBindGroup({
+        label: 'P Field Bind Group (dynamic)',
+        layout: this.pPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentPBuffer } },
+          { binding: 1, resource: { buffer: nextPBuffer } },
+          { binding: 2, resource: { buffer: this.buffers.bField } },
+          { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 4, resource: { buffer: this.buffers.particleParamsBuffer } },
+          { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
+        ],
+      });
+
+      // Dispatch for ALL particles (not just active count), shader filters by state
+      const particleWorkgroups = Math.ceil(this.buffers.maxParticles / 64);
+      pass.setBindGroup(0, pBindGroup);
+      pass.dispatchWorkgroups(particleWorkgroups);
+      pass.end();
+    }
+
+    // Swap particle buffer index
+    this.pBufferIndex = 1 - this.pBufferIndex;
+
     this.device.queue.submit([encoder.finish()]);
     this.frameCount++;
   }
@@ -526,5 +599,12 @@ export class SimulationEngine {
    */
   getCurrentHBuffer() {
     return this.hBufferIndex === 0 ? this.buffers.hFieldA : this.buffers.hFieldB;
+  }
+
+  /**
+   * Get current Particle buffer for rendering
+   */
+  getCurrentPBuffer() {
+    return this.pBufferIndex === 0 ? this.buffers.particleBufferA : this.buffers.particleBufferB;
   }
 }

@@ -9,6 +9,7 @@ export class SimulationBuffers {
     this.gridWidth = gridWidth;
     this.gridHeight = gridHeight;
     this.gridSize = gridWidth * gridHeight;
+    this.maxParticles = 16384; // fixed max particle capacity
 
     // Create all buffers
     this.createFieldBuffers();
@@ -74,6 +75,22 @@ export class SimulationBuffers {
       label: 'B Field Buffer'
     });
 
+    // Particle buffers (ping-pong, each particle = 32 bytes: pos, vel, energy, type, state, age)
+    const particleStride = 32; // bytes (was 16)
+    const particleBufferSize = this.maxParticles * particleStride;
+
+    this.particleBufferA = this.device.createBuffer({
+      size: particleBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'Particle Buffer A'
+    });
+
+    this.particleBufferB = this.device.createBuffer({
+      size: particleBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'Particle Buffer B'
+    });
+
     // H field (ping-pong for diffusion)
     this.hFieldA = this.device.createBuffer({
       size: fieldBufferSize,
@@ -107,6 +124,13 @@ export class SimulationBuffers {
       size: 256,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       label: 'Simulation Parameters Buffer'
+    });
+
+    // Particle parameters
+    this.particleParamsBuffer = this.device.createBuffer({
+      size: 256,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      label: 'Particle Parameters Buffer'
     });
 
     // Render parameters (visualization mode, color scheme)
@@ -195,10 +219,61 @@ export class SimulationBuffers {
   }
 
   /**
+   * Initialize particle buffers with random positions, zero velocity, and default states
+   * Particle structure: pos(vec2), vel(vec2), energy(f32), type(u32), state(u32), age(f32)
+   */
+  initializeParticles(activeCount) {
+    const data = new Float32Array(this.maxParticles * 8); // 4 → 8 floats per particle
+
+    for (let i = 0; i < this.maxParticles; i++) {
+      const base = i * 8;
+
+      if (i < activeCount) {
+        // Active particle
+        data[base]     = Math.random() * this.gridWidth;   // pos.x
+        data[base + 1] = Math.random() * this.gridHeight;  // pos.y
+        data[base + 2] = 0.0;                              // vel.x
+        data[base + 3] = 0.0;                              // vel.y
+        data[base + 4] = 1.0;                              // energy (initial = 1.0)
+
+        // u32 type: convert to f32 for buffer (will be interpreted as u32 in shader)
+        const typeU32 = new Uint32Array([0]); // type = 0 (default species)
+        data[base + 5] = new Float32Array(typeU32.buffer)[0];
+
+        // u32 state: 1 = active
+        const stateU32 = new Uint32Array([1]);
+        data[base + 6] = new Float32Array(stateU32.buffer)[0];
+
+        data[base + 7] = Math.random() * Math.PI * 2;      // age = random initial direction (0~2π)
+      } else {
+        // Inactive particle
+        for (let j = 0; j < 8; j++) {
+          data[base + j] = 0.0;
+        }
+        // state = 0 (inactive)
+        const stateU32 = new Uint32Array([0]);
+        data[base + 6] = new Float32Array(stateU32.buffer)[0];
+      }
+    }
+
+    this.device.queue.writeBuffer(this.particleBufferA, 0, data);
+    this.device.queue.writeBuffer(this.particleBufferB, 0, data);
+
+    console.log(`Initialized particles: active ${activeCount}, capacity ${this.maxParticles}, stride 32 bytes`);
+  }
+
+  /**
    * Update simulation parameters buffer
    */
   updateParamsBuffer(params) {
     this.device.queue.writeBuffer(this.paramsBuffer, 0, params);
+  }
+
+  /**
+   * Update particle parameters buffer
+   */
+  updateParticleParamsBuffer(params) {
+    this.device.queue.writeBuffer(this.particleParamsBuffer, 0, params);
   }
 
   /**
@@ -275,5 +350,19 @@ export class SimulationBuffers {
    */
   getMBufferNext(index) {
     return index === 0 ? this.mFieldB : this.mFieldA;
+  }
+
+  /**
+   * Get current particle buffer based on ping-pong index
+   */
+  getParticleBufferCurrent(index) {
+    return index === 0 ? this.particleBufferA : this.particleBufferB;
+  }
+
+  /**
+   * Get next particle buffer based on ping-pong index
+   */
+  getParticleBufferNext(index) {
+    return index === 0 ? this.particleBufferB : this.particleBufferA;
   }
 }

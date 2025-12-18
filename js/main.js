@@ -66,6 +66,7 @@ class HydrothermalVentSimulation {
       this.buffers.initializeHField(this.parameters.get('h0'));
       this.buffers.initializeMField();
       this.buffers.initializeBField();
+      this.buffers.initializeParticles(this.parameters.get('pCount'));
 
       // 4. Initialize simulation engine
       this.engine = new SimulationEngine(
@@ -147,6 +148,10 @@ class HydrothermalVentSimulation {
     // Update render parameters buffer
     const renderParamsData = this.parameters.toRenderUniformData();
     this.buffers.updateRenderParamsBuffer(renderParamsData);
+
+    // Update particle parameters buffer
+    const particleParamsData = this.parameters.toParticleUniformData();
+    this.buffers.updateParticleParamsBuffer(particleParamsData);
   }
 
   /**
@@ -161,6 +166,11 @@ class HydrothermalVentSimulation {
     }
     if (name === 'h0') {
       this.buffers.initializeHField(value);
+    }
+    // Reinitialize particles if count changed
+    if (name === 'pCount') {
+      this.buffers.initializeParticles(value);
+      this.engine.pBufferIndex = 0;
     }
 
     this.updateParameters();
@@ -211,6 +221,7 @@ class HydrothermalVentSimulation {
     this.buffers.initializeHField(this.parameters.get('h0'));
     this.buffers.initializeMField();
     this.buffers.initializeBField();
+    this.buffers.initializeParticles(this.parameters.get('pCount'));
 
     // Reset engine frame count and buffer indices
     this.engine.frameCount = 0;
@@ -218,6 +229,7 @@ class HydrothermalVentSimulation {
     this.engine.oBufferIndex = 0;
     this.engine.mBufferIndex = 0;
     this.engine.hBufferIndex = 0;
+    this.engine.pBufferIndex = 0;
 
     // Reset FPS counter
     this.frameCount = 0;
@@ -237,6 +249,10 @@ class HydrothermalVentSimulation {
     if (!this.isRunning) return;
 
     const now = performance.now();
+
+    // Keep simParams.currentTime moving (used by particle RNG)
+    // This only updates the shared sim uniform buffer; fields remain unchanged unless explicitly time-dependent.
+    this.buffers.updateParamsBuffer(this.parameters.toUniformData());
 
     // Update simulation
     this.engine.step();
@@ -329,6 +345,7 @@ class HydrothermalVentSimulation {
       let hSum = 0;
       let mTotal = 0;
       let bTotal = 0;
+      // Particle totals not aggregated (positions only)
       const gridSize = this.parameters.get('gridWidth') * this.parameters.get('gridHeight');
 
       for (let i = 0; i < gridSize; i++) {
