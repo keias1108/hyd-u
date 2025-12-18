@@ -148,9 +148,103 @@ export class Controls {
     container.appendChild(label);
     container.appendChild(controlRow);
 
+    // Add stability info for deltaTime parameter
+    if (def.name === 'deltaTime') {
+      const stabilityInfo = this.createStabilityInfo();
+      container.appendChild(stabilityInfo);
+    }
+
     this.controls[def.name] = { input, numberInput };
 
     return container;
+  }
+
+  /**
+   * Create stability information table for deltaTime
+   */
+  createStabilityInfo() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'stability-info-wrapper';
+    wrapper.style.marginTop = '8px';
+
+    // Toggle header
+    const header = document.createElement('div');
+    header.className = 'stability-info-header';
+    header.style.cursor = 'pointer';
+    header.style.fontSize = '11px';
+    header.style.color = 'rgba(232, 238, 242, 0.6)';
+    header.style.padding = '4px 6px';
+    header.style.borderRadius = '4px';
+    header.style.transition = 'all 0.2s ease';
+
+    const toggle = document.createElement('span');
+    toggle.textContent = '▶';
+    toggle.style.display = 'inline-block';
+    toggle.style.marginRight = '6px';
+    toggle.style.fontSize = '9px';
+    toggle.style.transition = 'transform 0.2s ease';
+
+    header.appendChild(toggle);
+    header.appendChild(document.createTextNode('Stability Guide'));
+
+    // Content table
+    const content = document.createElement('div');
+    content.className = 'stability-info-content';
+    content.style.display = 'none';
+    content.style.marginTop = '6px';
+    content.style.fontSize = '10px';
+    content.style.lineHeight = '1.6';
+    content.style.color = 'rgba(232, 238, 242, 0.7)';
+    content.style.backgroundColor = 'rgba(10, 15, 22, 0.4)';
+    content.style.padding = '8px';
+    content.style.borderRadius = '6px';
+    content.style.border = '1px solid rgba(255, 255, 255, 0.05)';
+
+    content.innerHTML = `
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+          <td style="padding: 4px 6px; font-weight: 600;">Range</td>
+          <td style="padding: 4px 6px; font-weight: 600;">Status</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 6px; color: rgba(138, 180, 248, 0.8);">0.001 ~ 0.05</td>
+          <td style="padding: 4px 6px; color: #4ade80;">✓ Stable</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 6px; color: rgba(138, 180, 248, 0.8);">0.05 ~ 0.15</td>
+          <td style="padding: 4px 6px; color: #fbbf24;">⚠ Slight instability</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 6px; color: rgba(138, 180, 248, 0.8);">0.15 ~ 0.3</td>
+          <td style="padding: 4px 6px; color: #fb923c;">⚠ Very unstable</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 6px; color: rgba(138, 180, 248, 0.8);">0.3 ~ 0.5</td>
+          <td style="padding: 4px 6px; color: #f87171;">✗ Critical</td>
+        </tr>
+      </table>
+    `;
+
+    // Toggle functionality
+    let isExpanded = false;
+    header.addEventListener('click', () => {
+      isExpanded = !isExpanded;
+      content.style.display = isExpanded ? 'block' : 'none';
+      toggle.style.transform = isExpanded ? 'rotate(90deg)' : 'rotate(0deg)';
+    });
+
+    // Hover effect
+    header.addEventListener('mouseenter', () => {
+      header.style.backgroundColor = 'rgba(30, 42, 59, 0.5)';
+    });
+    header.addEventListener('mouseleave', () => {
+      header.style.backgroundColor = 'transparent';
+    });
+
+    wrapper.appendChild(header);
+    wrapper.appendChild(content);
+
+    return wrapper;
   }
 
   /**

@@ -71,7 +71,7 @@ export const PARAMETER_DEFS = [
   new ParameterDefinition('pMinEnergy', 0.1, 0, 1, 0.01, 'Particles', 'Minimum energy threshold for survival'),
 
   // Simulation
-  new ParameterDefinition('deltaTime', 0.016, 0.001, 0.1, 0.001, 'Simulation', 'Time step'),
+  new ParameterDefinition('deltaTime', 0.016, 0.001, 0.5, 0.001, 'Simulation', 'Time step (dt)'),
 
   // Visualization
   new ParameterDefinition('visualizationMode', 0, 0, 5, 1, 'Visualization', 'Display mode'),
