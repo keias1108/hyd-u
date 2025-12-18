@@ -32,7 +32,7 @@ class HydrothermalVentSimulation {
     // Stats tracking
     this.lastStatsUpdate = 0;
     this.statsUpdateInterval = 100; // Update stats every 100ms
-    this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0, mTotal: 0, bTotal: 0 };
+    this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0, mTotal: 0, bTotal: 0, pTotal: 0 };
   }
 
   /**
@@ -124,8 +124,19 @@ class HydrothermalVentSimulation {
     const resetButton = document.getElementById('resetButton');
     resetButton.addEventListener('click', () => this.reset());
 
+    // Setup JSON save/load functionality
+    this.setupJSONControls();
+
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
+      // Alt+S: Save parameters to JSON
+      if (e.altKey && e.code === 'KeyS') {
+        e.preventDefault();
+        this.saveParametersJSON();
+        return;
+      }
+
+      // Space: Toggle simulation
       if (e.code === 'Space') {
         const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
         if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
@@ -135,6 +146,101 @@ class HydrothermalVentSimulation {
         this.toggleSimulation();
       }
     });
+  }
+
+  /**
+   * Setup JSON save/load controls
+   */
+  setupJSONControls() {
+    // Create a section for JSON controls if it doesn't exist
+    const controlsContainer = document.getElementById('controls');
+
+    const jsonSection = document.createElement('div');
+    jsonSection.className = 'parameter-panel expanded';
+
+    const header = document.createElement('h3');
+    const toggle = document.createElement('span');
+    toggle.className = 'toggle';
+    toggle.textContent = '▼';
+    header.appendChild(toggle);
+    header.appendChild(document.createTextNode('Data'));
+
+    header.addEventListener('click', () => {
+      jsonSection.classList.toggle('expanded');
+      jsonSection.classList.toggle('collapsed');
+      toggle.textContent = jsonSection.classList.contains('collapsed') ? '▶' : '▼';
+    });
+
+    jsonSection.appendChild(header);
+
+    const content = document.createElement('div');
+    content.className = 'panel-content';
+
+    // Save button
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save Parameters JSON';
+    saveBtn.style.width = '100%';
+    saveBtn.style.marginBottom = '8px';
+    saveBtn.addEventListener('click', () => this.saveParametersJSON());
+
+    // Load button
+    const loadBtn = document.createElement('button');
+    loadBtn.textContent = 'Load Parameters JSON';
+    loadBtn.style.width = '100%';
+    loadBtn.addEventListener('click', () => this.loadParametersJSON());
+
+    content.appendChild(saveBtn);
+    content.appendChild(loadBtn);
+    jsonSection.appendChild(content);
+
+    controlsContainer.appendChild(jsonSection);
+  }
+
+  /**
+   * Save parameters to JSON file
+   */
+  saveParametersJSON() {
+    const json = this.controls.exportParameters();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hydrothermal-params-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log('Parameters saved to JSON');
+  }
+
+  /**
+   * Load parameters from JSON file
+   */
+  loadParametersJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const success = this.controls.importParameters(event.target.result);
+        if (success) {
+          console.log('Parameters loaded from JSON');
+          alert('Parameters loaded successfully!');
+        } else {
+          alert('Failed to load parameters. Please check the file format.');
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    input.click();
   }
 
   /**
@@ -345,7 +451,6 @@ class HydrothermalVentSimulation {
       let hSum = 0;
       let mTotal = 0;
       let bTotal = 0;
-      // Particle totals not aggregated (positions only)
       const gridSize = this.parameters.get('gridWidth') * this.parameters.get('gridHeight');
 
       for (let i = 0; i < gridSize; i++) {
@@ -359,7 +464,10 @@ class HydrothermalVentSimulation {
       const oAvg = oSum / gridSize;
       const hAvg = hSum / gridSize;
 
-      return { rTotal, oAvg, hAvg, mTotal, bTotal };
+      // Get particle count from parameters
+      const pTotal = this.parameters.get('pCount');
+
+      return { rTotal, oAvg, hAvg, mTotal, bTotal, pTotal };
     } catch (error) {
       console.error('Failed to compute field stats:', error);
       return this.currentStats; // Return last valid stats
@@ -375,6 +483,7 @@ class HydrothermalVentSimulation {
     const hAvgEl = document.getElementById('h-avg');
     const mTotalEl = document.getElementById('m-total');
     const bTotalEl = document.getElementById('b-total');
+    const pTotalEl = document.getElementById('p-total');
 
     if (oAvgEl) {
       oAvgEl.textContent = this.currentStats.oAvg.toFixed(3);
@@ -390,6 +499,9 @@ class HydrothermalVentSimulation {
     }
     if (bTotalEl) {
       bTotalEl.textContent = this.currentStats.bTotal.toFixed(1);
+    }
+    if (pTotalEl) {
+      pTotalEl.textContent = this.currentStats.pTotal.toFixed(0);
     }
   }
 

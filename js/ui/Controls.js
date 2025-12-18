@@ -101,24 +101,54 @@ export class Controls {
     input.step = def.step;
     input.value = this.parameters.get(def.name);
 
-    const valueDisplay = document.createElement('span');
-    valueDisplay.className = 'value-display';
-    valueDisplay.textContent = this.formatValue(parseFloat(input.value), def.step);
+    // Add input number field
+    const numberInput = document.createElement('input');
+    numberInput.type = 'number';
+    numberInput.min = def.min;
+    numberInput.max = def.max;
+    numberInput.step = def.step;
+    numberInput.value = this.parameters.get(def.name);
+    numberInput.className = 'value-input';
 
+    // Slider input event
     input.addEventListener('input', (e) => {
       const value = parseFloat(e.target.value);
       this.parameters.set(def.name, value);
-      valueDisplay.textContent = this.formatValue(value, def.step);
+      numberInput.value = value;
       this.onParameterChange(def.name, value);
     });
 
+    // Number input event
+    numberInput.addEventListener('input', (e) => {
+      let value = parseFloat(e.target.value);
+      if (!isNaN(value)) {
+        value = Math.max(def.min, Math.min(def.max, value));
+        this.parameters.set(def.name, value);
+        input.value = value;
+        this.onParameterChange(def.name, value);
+      }
+    });
+
+    // Mouse wheel event on slider
+    input.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const currentValue = parseFloat(input.value);
+      const delta = e.deltaY < 0 ? def.step : -def.step;
+      const newValue = Math.max(def.min, Math.min(def.max, currentValue + delta));
+
+      input.value = newValue;
+      numberInput.value = newValue;
+      this.parameters.set(def.name, newValue);
+      this.onParameterChange(def.name, newValue);
+    }, { passive: false });
+
     controlRow.appendChild(input);
-    controlRow.appendChild(valueDisplay);
+    controlRow.appendChild(numberInput);
 
     container.appendChild(label);
     container.appendChild(controlRow);
 
-    this.controls[def.name] = { input, valueDisplay };
+    this.controls[def.name] = { input, numberInput };
 
     return container;
   }
@@ -195,10 +225,38 @@ export class Controls {
 
     if (control.input) {
       control.input.value = value;
-      const def = this.parameters.getDefinition(name);
-      control.valueDisplay.textContent = this.formatValue(value, def.step);
+      if (control.numberInput) {
+        control.numberInput.value = value;
+      }
     } else if (control.select) {
       control.select.value = value;
+    }
+  }
+
+  /**
+   * Export parameters to JSON
+   */
+  exportParameters() {
+    return JSON.stringify(this.parameters.getAll(), null, 2);
+  }
+
+  /**
+   * Import parameters from JSON
+   */
+  importParameters(jsonString) {
+    try {
+      const params = JSON.parse(jsonString);
+      for (const [name, value] of Object.entries(params)) {
+        if (this.parameters.getDefinition(name)) {
+          this.parameters.set(name, value);
+          this.updateControl(name, value);
+          this.onParameterChange(name, value);
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to import parameters:', error);
+      return false;
     }
   }
 }
