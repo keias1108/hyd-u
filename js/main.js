@@ -33,6 +33,9 @@ class HydrothermalVentSimulation {
     this.lastStatsUpdate = 0;
     this.statsUpdateInterval = 100; // Update stats every 100ms
     this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0, mTotal: 0, bTotal: 0, pTotal: 0 };
+
+    // Virtual simulation time (for sub-stepping)
+    this.virtualTime = 0;
   }
 
   /**
@@ -329,6 +332,9 @@ class HydrothermalVentSimulation {
   reset() {
     console.log('Resetting simulation...');
 
+    // Reset virtual time
+    this.virtualTime = 0;
+
     // Reinitialize fields
     this.buffers.initializeRField();
     this.buffers.initializeOField(this.parameters.get('o0'));
@@ -364,15 +370,21 @@ class HydrothermalVentSimulation {
     if (!this.isRunning) return;
 
     const now = performance.now();
+    const speedMultiplier = Math.floor(this.parameters.get('speedMultiplier'));
+    const dt = this.parameters.get('deltaTime');
 
-    // Keep simParams.currentTime moving (used by particle RNG)
-    // This only updates the shared sim uniform buffer; fields remain unchanged unless explicitly time-dependent.
-    this.buffers.updateParamsBuffer(this.parameters.toUniformData());
+    // Sub-stepping: speedMultiplier번 step() 반복
+    for (let substep = 0; substep < speedMultiplier; substep++) {
+      this.virtualTime += dt;
 
-    // Update simulation
-    this.engine.step();
+      const paramsData = this.parameters.toUniformData();
+      paramsData[23] = this.virtualTime; // Override currentTime for particle RNG
+      this.buffers.updateParamsBuffer(paramsData);
 
-    // Render
+      this.engine.step();
+    }
+
+    // 모든 sub-step 완료 후 최종 상태만 렌더링
     this.renderer.render();
 
     // Update FPS
@@ -388,6 +400,12 @@ class HydrothermalVentSimulation {
     if (now - this.lastStatsUpdate >= this.statsUpdateInterval) {
       this.updateStats();
       this.lastStatsUpdate = now;
+    }
+
+    // Performance warning
+    const frameTime = performance.now() - now;
+    if (frameTime > 16.67 * 1.5) {
+      console.warn(`Frame time ${frameTime.toFixed(1)}ms exceeds budget. Consider reducing speedMultiplier.`);
     }
 
     this.lastFrameTime = now;
@@ -410,8 +428,17 @@ class HydrothermalVentSimulation {
    */
   updateFpsDisplay() {
     const fpsCounter = document.getElementById('fps-counter');
+    const stepsCounter = document.getElementById('steps-per-second');
+
     if (fpsCounter) {
       fpsCounter.textContent = this.fps;
+    }
+
+    // Steps/sec counter
+    if (stepsCounter) {
+      const multiplier = this.parameters.get('speedMultiplier');
+      const stepsPerSec = this.fps * multiplier;
+      stepsCounter.textContent = stepsPerSec.toFixed(0);
     }
   }
 

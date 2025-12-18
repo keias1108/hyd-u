@@ -72,6 +72,7 @@ export const PARAMETER_DEFS = [
 
   // Simulation
   new ParameterDefinition('deltaTime', 0.016, 0.001, 0.5, 0.001, 'Simulation', 'Time step (dt)'),
+  new ParameterDefinition('speedMultiplier', 1, 1, 10, 1, 'Simulation', 'Speed multiplier (sub-steps per frame)'),
 
   // Visualization
   new ParameterDefinition('visualizationMode', 0, 0, 5, 1, 'Visualization', 'Display mode'),
