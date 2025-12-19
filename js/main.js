@@ -36,6 +36,16 @@ class HydrothermalVentSimulation {
 
     // Virtual simulation time (for sub-stepping)
     this.virtualTime = 0;
+
+    // Chart tracking
+    this.chart = null;
+    this.chartSampleInterval = 10; // Sample every 10 frames
+    this.chartFrameCounter = 0;
+    this.maxChartDataPoints = 500; // Keep last 500 data points
+
+    // Chart modal drag/resize state
+    this.modalDragState = { isDragging: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
+    this.modalResizeState = { isResizing: false, startX: 0, startY: 0, startWidth: 0, startHeight: 0 };
   }
 
   /**
@@ -131,8 +141,14 @@ class HydrothermalVentSimulation {
     const resetButton = document.getElementById('resetButton');
     resetButton.addEventListener('click', () => this.reset());
 
+    // Sidebar toggle button
+    this.setupSidebarToggle();
+
     // Setup JSON save/load functionality
     this.setupJSONControls();
+
+    // Setup chart panel
+    this.setupChartPanel();
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -160,6 +176,44 @@ class HydrothermalVentSimulation {
         }
         e.preventDefault();
         this.toggleSimulation();
+      }
+    });
+  }
+
+  /**
+   * Setup sidebar toggle
+   */
+  setupSidebarToggle() {
+    const toggleBtn = document.getElementById('toggleSidebarBtn');
+    const sidebar = document.getElementById('controls-sidebar');
+
+    // Load saved state from localStorage
+    const savedState = localStorage.getItem('sidebar-visible');
+    const isVisible = savedState === null ? true : savedState === 'true';
+
+    if (isVisible) {
+      sidebar.classList.add('sidebar-visible');
+      sidebar.classList.remove('sidebar-hidden');
+      toggleBtn.textContent = '◀';
+    } else {
+      sidebar.classList.add('sidebar-hidden');
+      sidebar.classList.remove('sidebar-visible');
+      toggleBtn.textContent = '▶';
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      if (sidebar.classList.contains('sidebar-visible')) {
+        // Hide sidebar
+        sidebar.classList.remove('sidebar-visible');
+        sidebar.classList.add('sidebar-hidden');
+        toggleBtn.textContent = '▶';
+        localStorage.setItem('sidebar-visible', 'false');
+      } else {
+        // Show sidebar
+        sidebar.classList.remove('sidebar-hidden');
+        sidebar.classList.add('sidebar-visible');
+        toggleBtn.textContent = '◀';
+        localStorage.setItem('sidebar-visible', 'true');
       }
     });
   }
@@ -326,6 +380,312 @@ class HydrothermalVentSimulation {
   }
 
   /**
+   * Setup chart panel (now opens floating modal)
+   */
+  setupChartPanel() {
+    const controlsContainer = document.getElementById('controls');
+
+    const chartSection = document.createElement('div');
+    chartSection.className = 'parameter-panel collapsed';
+
+    const header = document.createElement('h3');
+    const toggle = document.createElement('span');
+    toggle.className = 'toggle';
+    toggle.textContent = '▶';
+    header.appendChild(toggle);
+    header.appendChild(document.createTextNode('Chart'));
+
+    header.addEventListener('click', () => {
+      this.openChartModal();
+    });
+
+    chartSection.appendChild(header);
+    controlsContainer.appendChild(chartSection);
+
+    // Setup modal interactions
+    this.setupChartModal();
+  }
+
+  /**
+   * Setup chart modal interactions
+   */
+  setupChartModal() {
+    const modal = document.getElementById('chartModal');
+    const header = modal.querySelector('.chart-modal-header');
+    const closeBtn = document.getElementById('closeChartModal');
+    const resizeHandle = modal.querySelector('.chart-modal-resize-handle');
+
+    // Close button
+    closeBtn.addEventListener('click', () => this.closeChartModal());
+
+    // Drag functionality
+    header.addEventListener('mousedown', (e) => this.startDragging(e));
+    document.addEventListener('mousemove', (e) => this.onDragging(e));
+    document.addEventListener('mouseup', () => this.stopDragging());
+
+    // Resize functionality
+    resizeHandle.addEventListener('mousedown', (e) => this.startResizing(e));
+    document.addEventListener('mousemove', (e) => this.onResizing(e));
+    document.addEventListener('mouseup', () => this.stopResizing());
+  }
+
+  /**
+   * Open chart modal
+   */
+  openChartModal() {
+    const modal = document.getElementById('chartModal');
+    modal.classList.remove('hidden');
+
+    // Initialize chart if not already created
+    if (!this.chart) {
+      this.initializeChart();
+    }
+  }
+
+  /**
+   * Close chart modal
+   */
+  closeChartModal() {
+    const modal = document.getElementById('chartModal');
+    modal.classList.add('hidden');
+  }
+
+  /**
+   * Start dragging modal
+   */
+  startDragging(e) {
+    if (e.target.closest('.chart-modal-close')) return;
+
+    this.modalDragState.isDragging = true;
+    const modal = document.getElementById('chartModal');
+    const rect = modal.getBoundingClientRect();
+
+    this.modalDragState.startX = e.clientX;
+    this.modalDragState.startY = e.clientY;
+    this.modalDragState.startLeft = rect.left;
+    this.modalDragState.startTop = rect.top;
+
+    modal.style.cursor = 'grabbing';
+  }
+
+  /**
+   * On dragging modal
+   */
+  onDragging(e) {
+    if (!this.modalDragState.isDragging) return;
+
+    const modal = document.getElementById('chartModal');
+    const deltaX = e.clientX - this.modalDragState.startX;
+    const deltaY = e.clientY - this.modalDragState.startY;
+
+    const newLeft = this.modalDragState.startLeft + deltaX;
+    const newTop = this.modalDragState.startTop + deltaY;
+
+    modal.style.left = `${newLeft}px`;
+    modal.style.top = `${newTop}px`;
+    modal.style.transform = 'none';
+  }
+
+  /**
+   * Stop dragging modal
+   */
+  stopDragging() {
+    if (this.modalDragState.isDragging) {
+      const modal = document.getElementById('chartModal');
+      modal.style.cursor = '';
+      this.modalDragState.isDragging = false;
+    }
+  }
+
+  /**
+   * Start resizing modal
+   */
+  startResizing(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    this.modalResizeState.isResizing = true;
+    const modal = document.getElementById('chartModal');
+    const rect = modal.getBoundingClientRect();
+
+    this.modalResizeState.startX = e.clientX;
+    this.modalResizeState.startY = e.clientY;
+    this.modalResizeState.startWidth = rect.width;
+    this.modalResizeState.startHeight = rect.height;
+  }
+
+  /**
+   * On resizing modal
+   */
+  onResizing(e) {
+    if (!this.modalResizeState.isResizing) return;
+
+    const modal = document.getElementById('chartModal');
+    const deltaX = e.clientX - this.modalResizeState.startX;
+    const deltaY = e.clientY - this.modalResizeState.startY;
+
+    const newWidth = Math.max(400, this.modalResizeState.startWidth + deltaX);
+    const newHeight = Math.max(300, this.modalResizeState.startHeight + deltaY);
+
+    modal.style.width = `${newWidth}px`;
+    modal.style.height = `${newHeight}px`;
+  }
+
+  /**
+   * Stop resizing modal
+   */
+  stopResizing() {
+    this.modalResizeState.isResizing = false;
+  }
+
+  /**
+   * Initialize Chart.js
+   */
+  initializeChart() {
+    const canvas = document.getElementById('floatingStatsChart');
+    if (!canvas || this.chart) return;
+
+    const ctx = canvas.getContext('2d');
+
+    this.chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [], // Virtual time
+        datasets: [
+          {
+            label: 'O avg',
+            data: [],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1
+          },
+          {
+            label: 'R total',
+            data: [],
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1
+          },
+          {
+            label: 'H avg',
+            data: [],
+            borderColor: 'rgb(255, 205, 86)',
+            backgroundColor: 'rgba(255, 205, 86, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1
+          },
+          {
+            label: 'B total',
+            data: [],
+            borderColor: 'rgb(54, 162, 235)',
+            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1
+          },
+          {
+            label: 'P total',
+            data: [],
+            borderColor: 'rgb(153, 102, 255)',
+            backgroundColor: 'rgba(153, 102, 255, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false, // Disable animation for better performance
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              color: '#fff',
+              font: {
+                size: 10
+              }
+            }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            title: {
+              display: true,
+              text: 'Virtual Time (s)',
+              color: '#fff'
+            },
+            ticks: {
+              color: '#aaa'
+            },
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Value',
+              color: '#fff'
+            },
+            ticks: {
+              color: '#aaa'
+            },
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            }
+          }
+        },
+        interaction: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
+        }
+      }
+    });
+
+    console.log('Chart initialized');
+  }
+
+  /**
+   * Update chart with current stats
+   */
+  updateChart() {
+    if (!this.chart) return;
+
+    const time = this.virtualTime;
+    const stats = this.currentStats;
+
+    // Add new data point
+    this.chart.data.labels.push(time);
+    this.chart.data.datasets[0].data.push(stats.oAvg);
+    this.chart.data.datasets[1].data.push(stats.rTotal);
+    this.chart.data.datasets[2].data.push(stats.hAvg);
+    this.chart.data.datasets[3].data.push(stats.bTotal);
+    this.chart.data.datasets[4].data.push(stats.pTotal);
+
+    // Keep only last N data points
+    if (this.chart.data.labels.length > this.maxChartDataPoints) {
+      this.chart.data.labels.shift();
+      this.chart.data.datasets.forEach(dataset => dataset.data.shift());
+    }
+
+    this.chart.update('none'); // Update without animation
+  }
+
+  /**
    * Update GPU buffers when parameters change
    */
   updateParameters() {
@@ -427,6 +787,16 @@ class HydrothermalVentSimulation {
     this.frameCount = 0;
     this.fps = 0;
 
+    // Reset chart
+    this.chartFrameCounter = 0;
+    if (this.chart) {
+      this.chart.data.labels = [];
+      this.chart.data.datasets.forEach(dataset => {
+        dataset.data = [];
+      });
+      this.chart.update('none');
+    }
+
     // Update display
     this.updateParameters();
     this.renderer.render();
@@ -471,6 +841,13 @@ class HydrothermalVentSimulation {
     if (now - this.lastStatsUpdate >= this.statsUpdateInterval) {
       this.updateStats();
       this.lastStatsUpdate = now;
+    }
+
+    // Update chart (every N frames)
+    this.chartFrameCounter++;
+    if (this.chartFrameCounter >= this.chartSampleInterval) {
+      this.updateChart();
+      this.chartFrameCounter = 0;
     }
 
     // Performance warning

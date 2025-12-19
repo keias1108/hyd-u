@@ -6,17 +6,8 @@
   font-family: "Segoe UI", system-ui, sans-serif;
   color: #e8eef2;
 
-  /* 우주 배경: 별 + 그라데이션 */
-  background: #0a0118;
-  background-image:
-    radial-gradient(2px 2px at 20% 30%, white, transparent),
-    radial-gradient(2px 2px at 60% 70%, white, transparent),
-    radial-gradient(1px 1px at 50% 50%, white, transparent),
-    radial-gradient(1px 1px at 80% 10%, white, transparent),
-    radial-gradient(2px 2px at 90% 60%, white, transparent),
-    radial-gradient(1px 1px at 15% 80%, rgba(255, 255, 255, 0.8), transparent),
-    radial-gradient(1px 1px at 40% 20%, rgba(255, 255, 255, 0.6), transparent),
-    radial-gradient(circle at 50% 50%, #1a0b2e 0%, #0a0118 100%);
+  /* 검정 배경 */
+  background: #000000;
   background-attachment: fixed;
 
   /* 글라스모피즘 컬러 팔레트 */
@@ -348,10 +339,12 @@ input[type="number"].value-input {
 
 #canvas-container {
   position: relative;
-  background: #0b0f16;
+  background: #000000;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 
 canvas {
@@ -498,4 +491,138 @@ canvas {
   .shortcuts-hint {
     display: none;
   }
+}
+
+/* ============================================================================
+   Sidebar Toggle
+   ============================================================================ */
+
+#controls-sidebar.sidebar-hidden {
+  transform: translateX(calc(-100% + 40px));
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#controls-sidebar.sidebar-hidden:hover {
+  transform: translateX(calc(-100% + 60px));
+}
+
+#controls-sidebar.sidebar-visible {
+  transform: translateX(0);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-toggle-btn {
+  z-index: 10;
+  position: relative;
+  height: 28px;
+  width: 36px;
+  padding: 0 !important;
+  font-size: 14px !important;
+  font-weight: normal;
+  background: rgba(27, 38, 54, 0.6) !important;
+  border: 1px solid var(--glass-border) !important;
+  color: #e8eef2 !important;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.sidebar-toggle-btn:hover {
+  background: rgba(138, 180, 248, 0.2) !important;
+  border-color: rgba(138, 180, 248, 0.3) !important;
+  box-shadow: 0 0 8px rgba(138, 180, 248, 0.2);
+}
+
+/* ============================================================================
+   Floating Chart Modal
+   ============================================================================ */
+
+.chart-modal {
+  position: fixed;
+  background: rgba(15, 22, 33, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  min-width: 400px;
+  min-height: 300px;
+  width: 433px;
+  height: 803px;
+  top: 75.5px;
+  left: 62px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-modal.hidden {
+  display: none;
+}
+
+.chart-modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  cursor: move;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(138, 180, 248, 0.05);
+  border-radius: 12px 12px 0 0;
+  user-select: none;
+}
+
+.chart-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.chart-modal-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.chart-modal-close:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+.chart-modal-body {
+  flex: 1;
+  padding: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-modal-body canvas {
+  flex: 1;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.chart-modal-resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 0%, transparent 50%, rgba(138, 180, 248, 0.3) 50%, rgba(138, 180, 248, 0.3) 100%);
+  border-bottom-right-radius: 12px;
 }

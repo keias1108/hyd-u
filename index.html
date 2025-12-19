@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hydrothermal Vent Simulation - WebGPU</title>
     <link rel="stylesheet" href="css/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
     <!-- 좌측 사이드바: 컨트롤 패널 -->
     <div id="controls-sidebar">
-      <h1>Hydrothermal Vent</h1>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h1>Hydrothermal Vent</h1>
+        <button id="toggleSidebarBtn" class="sidebar-toggle-btn" title="Toggle Sidebar">◀</button>
+      </div>
       <p class="subtitle">WebGPU R-O Field Model</p>
 
       <!-- 시뮬레이션 컨트롤 -->
@@ -77,6 +81,18 @@
         This simulation requires WebGPU support. Please use a browser that
         supports WebGPU (Chrome 113+, Edge 113+).
       </p>
+    </div>
+
+    <!-- Floating Chart Modal -->
+    <div id="chartModal" class="chart-modal hidden">
+      <div class="chart-modal-header">
+        <span class="chart-modal-title">Statistics Chart</span>
+        <button id="closeChartModal" class="chart-modal-close">×</button>
+      </div>
+      <div class="chart-modal-body">
+        <canvas id="floatingStatsChart"></canvas>
+      </div>
+      <div class="chart-modal-resize-handle"></div>
     </div>
 
     <script type="module" src="js/main.js"></script>
