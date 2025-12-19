@@ -29,58 +29,58 @@ export const PARAMETER_DEFS = [
   // R Field (Reducing substance)
   new ParameterDefinition('rCenterX', 256, 0, 512, 1, 'R Field', 'Injection center X'),
   new ParameterDefinition('rCenterY', 256, 0, 512, 1, 'R Field', 'Injection center Y'),
-  new ParameterDefinition('rMaxStrength', 1.0, 0, 1, 0.01, 'R Field', 'Max R at center'),
-  new ParameterDefinition('rDecayRadius', 50, 1, 200, 1, 'R Field', 'Injection radius'),
-  new ParameterDefinition('rFalloffPower', 2.0, 0.5, 5, 0.1, 'R Field', 'Falloff curve'),
-  new ParameterDefinition('rDiffusionRate', 0.15, 0, 2, 0.01, 'R Field', 'R diffusion rate'),
-  new ParameterDefinition('rDecayRate', 0.05, 0, 1, 0.01, 'R Field', 'R decay rate'),
+  new ParameterDefinition('rMaxStrength', 0.01, 0, 1, 0.01, 'R Field', 'Max R at center'),
+  new ParameterDefinition('rDecayRadius', 200, 1, 200, 1, 'R Field', 'Injection radius'),
+  new ParameterDefinition('rFalloffPower', 5, 0.5, 5, 0.1, 'R Field', 'Falloff curve'),
+  new ParameterDefinition('rDiffusionRate', 2, 0, 2, 0.01, 'R Field', 'R diffusion rate'),
+  new ParameterDefinition('rDecayRate', 0.01, 0, 1, 0.01, 'R Field', 'R decay rate'),
   new ParameterDefinition('rAdvectionEnabled', 0, 0, 1, 1, 'R Field', 'R advection ON/OFF'),
-  new ParameterDefinition('rAdvectionVX', 0.03, -0.5, 0.5, 0.01, 'R Field', 'R advection base speed'),
-  new ParameterDefinition('rAdvectionVY', 0.0, -0.5, 0.5, 0.01, 'R Field', 'R advection base speed (Y component)'),
+  new ParameterDefinition('rAdvectionVX', 0.5, -0.5, 0.5, 0.01, 'R Field', 'R advection base speed'),
+  new ParameterDefinition('rAdvectionVY', 0.03, -0.5, 0.5, 0.01, 'R Field', 'R advection base speed (Y component)'),
 
   // O Field (Oxidizing substance)
-  new ParameterDefinition('o0', 0.8, 0, 1, 0.01, 'O Field', 'Background O₀'),
-  new ParameterDefinition('oRelaxationRate', 0.06, 0, 1, 0.01, 'O Field', 'Relaxation rate'),
-  new ParameterDefinition('oDiffusionRate', 0.08, 0, 2, 0.01, 'O Field', 'O diffusion rate'),
+  new ParameterDefinition('o0', 0.88, 0, 1, 0.01, 'O Field', 'Background O₀'),
+  new ParameterDefinition('oRelaxationRate', 0.005, 0, 1, 0.01, 'O Field', 'Relaxation rate'),
+  new ParameterDefinition('oDiffusionRate', 1, 0, 2, 0.01, 'O Field', 'O diffusion rate'),
 
   // Reaction
-  new ParameterDefinition('reactionRate', 0.1, 0, 2, 0.01, 'Reaction', '반응 계수'),
-  new ParameterDefinition('restoreRate', 0.04, 0, 1, 0.01, 'Reaction', 'O 복원율'),
+  new ParameterDefinition('reactionRate', 2, 0, 2, 0.01, 'Reaction', '반응 계수'),
+  new ParameterDefinition('restoreRate', 0.06189, 0, 1, 0.01, 'Reaction', 'O 복원율'),
 
   // H Field (Heat/Loss trace)
   new ParameterDefinition('h0', 0.0, 0, 1, 0.01, 'H Field', 'H 배경 농도'),
   new ParameterDefinition('hDecayRate', 0.02, 0, 1, 0.01, 'H Field', 'H 감쇠율'),
-  new ParameterDefinition('hDiffusionRate', 0.1, 0, 1, 0.01, 'H Field', 'H 확산율'),
+  new ParameterDefinition('hDiffusionRate', 0.8, 0, 1, 0.01, 'H Field', 'H 확산율'),
 
   // M Field (microbe/biomass)
-  new ParameterDefinition('mGrowRate', 0.5, 0, 5, 0.01, 'M Field', 'M growth rate from B'),
-  new ParameterDefinition('mDeathRate', 0.05, 0, 1, 0.01, 'M Field', 'M death rate'),
-  new ParameterDefinition('bDecayRate', 0.03, 0, 1, 0.01, 'M Field', 'B decay rate (sink to environment)'),
-  new ParameterDefinition('kBase', 1.0, 0.1, 10, 0.1, 'M Field', 'M carrying capacity base K0'),
+  new ParameterDefinition('mGrowRate', 0.3, 0, 5, 0.01, 'M Field', 'M growth rate from B'),
+  new ParameterDefinition('mDeathRate', 0.15, 0, 1, 0.01, 'M Field', 'M death rate'),
+  new ParameterDefinition('bDecayRate', 0.001, 0, 1, 0.01, 'M Field', 'B decay rate (sink to environment)'),
+  new ParameterDefinition('kBase', 0.8, 0.1, 10, 0.1, 'M Field', 'M carrying capacity base K0'),
   new ParameterDefinition('kAlpha', 0.5, 0, 5, 0.01, 'M Field', 'Km sensitivity to long-term B'),
-  new ParameterDefinition('bLongRate', 0.1, 0, 2, 0.01, 'M Field', 'Long-term B averaging rate'),
-  new ParameterDefinition('mYield', 1.0, 0, 5, 0.01, 'M Field', 'B consumption per positive M growth'),
+  new ParameterDefinition('bLongRate', 0.01, 0, 2, 0.01, 'M Field', 'Long-term B averaging rate'),
+  new ParameterDefinition('mYield', 0.8, 0, 5, 0.01, 'M Field', 'B consumption per positive M growth'),
 
   // Particle Agents (P)
-  new ParameterDefinition('pCount', 4000, 0, 16384, 256, 'Particles', 'Particle count (active)'),
-  new ParameterDefinition('pBiasStrength', 0.8, 0, 5, 0.01, 'Particles', 'Bias toward ∇B'),
+  new ParameterDefinition('pCount', 3072, 0, 16384, 256, 'Particles', 'Particle count (active)'),
+  new ParameterDefinition('pBiasStrength', 0.001, 0, 5, 0.01, 'Particles', 'Bias toward ∇B'),
   new ParameterDefinition('pFriction', 0.2, 0, 2, 0.01, 'Particles', 'Velocity friction'),
-  new ParameterDefinition('pNoiseStrength', 0.1, 0, 2, 0.01, 'Particles', 'Random walk strength'),
+  new ParameterDefinition('pNoiseStrength', 0.01, 0, 2, 0.01, 'Particles', 'Random walk strength'),
   new ParameterDefinition('pSpeed', 1.0, 0, 5, 0.01, 'Particles', 'Movement speed scale'),
-  new ParameterDefinition('pEatEnabled', 0, 0, 1, 1, 'Particles', 'Particle eating ON/OFF'),
-  new ParameterDefinition('pEatAmount', 0.001, 0, 0.05, 0.0005, 'Particles', 'B consumption per step'),
-  new ParameterDefinition('pPointSize', 2.0, 1, 8, 0.5, 'Particles', 'Particle point size (px)'),
-  new ParameterDefinition('pEnergyDecayRate', 0.001, 0, 0.1, 0.0001, 'Particles', 'Energy decay per step'),
-  new ParameterDefinition('pEnergyFromEat', 0.05, 0, 0.5, 0.001, 'Particles', 'Energy gain coefficient from B consumption'),
+  new ParameterDefinition('pEatEnabled', 1, 0, 1, 1, 'Particles', 'Particle eating ON/OFF'),
+  new ParameterDefinition('pEatAmount', 0.05, 0, 0.05, 0.0005, 'Particles', 'B consumption per step'),
+  new ParameterDefinition('pPointSize', 1.0, 1, 8, 0.5, 'Particles', 'Particle point size (px)'),
+  new ParameterDefinition('pEnergyDecayRate', 0.003, 0, 0.1, 0.0001, 'Particles', 'Energy decay per step'),
+  new ParameterDefinition('pEnergyFromEat', 0.1, 0, 0.5, 0.001, 'Particles', 'Energy gain coefficient from B consumption'),
   new ParameterDefinition('pMinEnergy', 0.1, 0, 1, 0.01, 'Particles', 'Minimum energy threshold for survival'),
 
   // Simulation
-  new ParameterDefinition('deltaTime', 0.016, 0.001, 0.5, 0.001, 'Simulation', 'Time step (dt)'),
-  new ParameterDefinition('speedMultiplier', 1, 1, 10, 1, 'Simulation', 'Speed multiplier (sub-steps per frame)'),
+  new ParameterDefinition('deltaTime', 0.05, 0.001, 0.5, 0.001, 'Simulation', 'Time step (dt)'),
+  new ParameterDefinition('speedMultiplier', 10, 1, 10, 1, 'Simulation', 'Speed multiplier (sub-steps per frame)'),
 
   // Visualization
-  new ParameterDefinition('visualizationMode', 0, 0, 5, 1, 'Visualization', 'Display mode'),
-  new ParameterDefinition('colorScheme', 1, 0, 2, 1, 'Visualization', 'Color scheme'),
+  new ParameterDefinition('visualizationMode', 4, 0, 5, 1, 'Visualization', 'Display mode'),
+  new ParameterDefinition('colorScheme', 0, 0, 2, 1, 'Visualization', 'Color scheme'),
 ];
 
 /**
