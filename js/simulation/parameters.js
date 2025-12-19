@@ -56,6 +56,10 @@ export const PARAMETER_DEFS = [
   new ParameterDefinition('mGrowRate', 0.5, 0, 5, 0.01, 'M Field', 'M growth rate from B'),
   new ParameterDefinition('mDeathRate', 0.05, 0, 1, 0.01, 'M Field', 'M death rate'),
   new ParameterDefinition('bDecayRate', 0.03, 0, 1, 0.01, 'M Field', 'B decay rate (sink to environment)'),
+  new ParameterDefinition('kBase', 1.0, 0.1, 10, 0.1, 'M Field', 'M carrying capacity base K0'),
+  new ParameterDefinition('kAlpha', 0.5, 0, 5, 0.01, 'M Field', 'Km sensitivity to long-term B'),
+  new ParameterDefinition('bLongRate', 0.1, 0, 2, 0.01, 'M Field', 'Long-term B averaging rate'),
+  new ParameterDefinition('mYield', 1.0, 0, 5, 0.01, 'M Field', 'B consumption per positive M growth'),
 
   // Particle Agents (P)
   new ParameterDefinition('pCount', 4000, 0, 16384, 256, 'Particles', 'Particle count (active)'),
@@ -171,6 +175,10 @@ export class SimulationParameters {
     data[offset++] = this.values.mGrowRate;
     data[offset++] = this.values.mDeathRate;
     data[offset++] = this.values.bDecayRate;
+    data[offset++] = this.values.kBase;
+    data[offset++] = this.values.kAlpha;
+    data[offset++] = this.values.bLongRate;
+    data[offset++] = this.values.mYield;
 
     // Simulation parameters
     data[offset++] = this.values.deltaTime;

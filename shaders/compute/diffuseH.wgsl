@@ -30,6 +30,10 @@ struct SimParams {
   mGrowRate: f32,
   mDeathRate: f32,
   bDecayRate: f32,
+  kBase: f32,
+  kAlpha: f32,
+  bLongRate: f32,
+  mYield: f32,
   deltaTime: f32,
   currentTime: f32,
 }

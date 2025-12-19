@@ -80,7 +80,8 @@ export class SimulationEngine {
    * Load shader code from file
    */
   async loadShader(path) {
-    const response = await fetch(path);
+    const cacheBustedPath = `${path}?v=${Date.now()}`;
+    const response = await fetch(cacheBustedPath, { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`Failed to load shader: ${path}`);
     }
@@ -210,9 +211,10 @@ export class SimulationEngine {
       entries: [
         { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // mFieldIn
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // mFieldOut
-        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // bField
-        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
-        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // bField
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // bLongField
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
       ],
     });
 
@@ -525,8 +527,9 @@ export class SimulationEngine {
           { binding: 0, resource: { buffer: currentMBuffer } },
           { binding: 1, resource: { buffer: nextMBuffer } },
           { binding: 2, resource: { buffer: this.buffers.bField } },
-          { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
-          { binding: 4, resource: { buffer: this.buffers.paramsBuffer } },
+          { binding: 3, resource: { buffer: this.buffers.bLongField } },
+          { binding: 4, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
         ],
       });
 

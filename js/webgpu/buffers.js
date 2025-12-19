@@ -75,6 +75,13 @@ export class SimulationBuffers {
       label: 'B Field Buffer'
     });
 
+    // B long-term average field
+    this.bLongField = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'B Long Field Buffer'
+    });
+
     // Particle buffers (ping-pong, each particle = 32 bytes: pos, vel, energy, type, state, age)
     const particleStride = 32; // bytes (was 16)
     const particleBufferSize = this.maxParticles * particleStride;
@@ -216,6 +223,18 @@ export class SimulationBuffers {
     this.device.queue.writeBuffer(this.bField, 0, data);
 
     console.log('Initialized B field to 0');
+  }
+
+  /**
+   * Initialize long-term B field to zeros
+   */
+  initializeBLongField() {
+    const data = new Float32Array(this.gridSize);
+    data.fill(0.0);
+
+    this.device.queue.writeBuffer(this.bLongField, 0, data);
+
+    console.log('Initialized B long field to 0');
   }
 
   /**

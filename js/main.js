@@ -69,6 +69,7 @@ class HydrothermalVentSimulation {
       this.buffers.initializeHField(this.parameters.get('h0'));
       this.buffers.initializeMField();
       this.buffers.initializeBField();
+      this.buffers.initializeBLongField();
       this.buffers.initializeParticles(this.parameters.get('pCount'));
 
       // 4. Initialize simulation engine
@@ -342,6 +343,7 @@ class HydrothermalVentSimulation {
     this.buffers.initializeHField(this.parameters.get('h0'));
     this.buffers.initializeMField();
     this.buffers.initializeBField();
+    this.buffers.initializeBLongField();
     this.buffers.initializeParticles(this.parameters.get('pCount'));
 
     // Reset engine frame count and buffer indices
