@@ -50,7 +50,11 @@ struct ParticleParams {
   pEnergyDecayRate: f32,
   pEnergyFromEat: f32,
   pMinEnergy: f32,
-  _pad3: f32,
+  pMaxEnergy: f32,
+  pReproduceEnabled: f32,
+  pReproduceThreshold: f32,
+  pReproduceSpawnRadius: f32,
+  _pad1: f32,
 }
 
 struct Particle {
@@ -82,8 +86,8 @@ fn rand01(seed: u32) -> f32 {
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   let idx = globalId.x;
-  let count = u32(particleParams.pCount);
-  if (idx >= count) {
+  let maxParticles = 16384u; // Maximum particle capacity
+  if (idx >= maxParticles) {
     return;
   }
 
@@ -225,8 +229,76 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
     p.energy = p.energy + consumeAmount * particleParams.pEnergyFromEat;
   }
 
+  // Reproduction logic
+  if (particleParams.pReproduceEnabled > 0.5 && p.energy >= particleParams.pReproduceThreshold && p.state == 1u) {
+    // Try to find an empty slot for offspring
+    // Use random starting point to reduce collisions
+    let startSlot = u32(r0 * f32(maxParticles));
+    var foundSlot = false;
+    var targetSlot = 0u;
+
+    // Try up to 8 different slots
+    for (var attempt = 0u; attempt < 8u; attempt = attempt + 1u) {
+      let candidateSlot = (startSlot + attempt * 1237u) % maxParticles;
+      let candidate = particlesIn[candidateSlot];
+
+      if (candidate.state == 0u) {
+        targetSlot = candidateSlot;
+        foundSlot = true;
+        break;
+      }
+    }
+
+    if (foundSlot) {
+      // Split energy between parent and child
+      p.energy = p.energy * 0.5;
+
+      // Create child particle
+      var child: Particle;
+
+      // Spawn near parent with random offset
+      let spawnOffsetAngle = r1 * tau;
+      let spawnDist = particleParams.pReproduceSpawnRadius * (0.5 + r2 * 0.5);
+      let spawnOffset = vec2<f32>(
+        cos(spawnOffsetAngle) * spawnDist,
+        sin(spawnOffsetAngle) * spawnDist
+      );
+
+      // Clamp position to grid bounds
+      child.pos = clamp(
+        p.pos + spawnOffset,
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(f32(gridW - 1u), f32(gridH - 1u))
+      );
+
+      // Inherit velocity with random variation
+      let r3 = fract(sin(f32(idx) * 78.233 + simParams.currentTime * 0.1) * 43758.5453);
+      let r4 = fract(sin(f32(idx) * 12.989 + simParams.currentTime * 0.2) * 43758.5453);
+      child.vel = p.vel * 0.5 + vec2<f32>(
+        (r3 * 2.0 - 1.0) * particleParams.pSpeed * 0.3,
+        (r4 * 2.0 - 1.0) * particleParams.pSpeed * 0.3
+      );
+
+      // Give child half of parent's energy (already split above)
+      child.energy = p.energy;
+
+      // Inherit type from parent
+      child.type_ = p.type_;
+
+      // Activate child
+      child.state = 1u;
+
+      // Random initial heading
+      child.age = spawnOffsetAngle;
+
+      // Write child to output buffer
+      particlesOut[targetSlot] = child;
+    }
+    // If no empty slot found after 8 attempts, reproduction fails (natural limiting)
+  }
+
   // Cap energy at maximum
-  p.energy = min(p.energy, 2.0);
+  p.energy = min(p.energy, particleParams.pMaxEnergy);
 
   // Check if particle dies (energy too low)
   if (p.energy < particleParams.pMinEnergy) {

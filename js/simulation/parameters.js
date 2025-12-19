@@ -62,7 +62,7 @@ export const PARAMETER_DEFS = [
   new ParameterDefinition('mYield', 0.8, 0, 5, 0.01, 'M Field', 'B consumption per positive M growth'),
 
   // Particle Agents (P)
-  new ParameterDefinition('pCount', 3072, 0, 16384, 256, 'Particles', 'Particle count (active)'),
+  new ParameterDefinition('pCount', 3072, 0, 16384, 256, 'Particles', 'Initial particle count (can grow via reproduction)'),
   new ParameterDefinition('pBiasStrength', 0.001, 0, 5, 0.01, 'Particles', 'Bias toward ∇B'),
   new ParameterDefinition('pFriction', 0.2, 0, 2, 0.01, 'Particles', 'Velocity friction'),
   new ParameterDefinition('pNoiseStrength', 0.01, 0, 2, 0.01, 'Particles', 'Random walk strength'),
@@ -73,6 +73,10 @@ export const PARAMETER_DEFS = [
   new ParameterDefinition('pEnergyDecayRate', 0.003, 0, 0.1, 0.0001, 'Particles', 'Energy decay per step'),
   new ParameterDefinition('pEnergyFromEat', 0.1, 0, 0.5, 0.001, 'Particles', 'Energy gain coefficient from B consumption'),
   new ParameterDefinition('pMinEnergy', 0.1, 0, 1, 0.01, 'Particles', 'Minimum energy threshold for survival'),
+  new ParameterDefinition('pMaxEnergy', 2.0, 0.5, 5.0, 0.1, 'Particles', 'Maximum energy cap'),
+  new ParameterDefinition('pReproduceEnabled', 1, 0, 1, 1, 'Particles', 'Reproduction ON/OFF'),
+  new ParameterDefinition('pReproduceThreshold', 1.5, 0.5, 3.0, 0.1, 'Particles', 'Energy required to reproduce'),
+  new ParameterDefinition('pReproduceSpawnRadius', 5.0, 1.0, 20.0, 0.5, 'Particles', 'Child spawn distance from parent'),
 
   // Simulation
   new ParameterDefinition('deltaTime', 0.05, 0.001, 0.5, 0.001, 'Simulation', 'Time step (dt)'),
@@ -210,6 +214,10 @@ export class SimulationParameters {
     data[offset++] = this.values.pEnergyDecayRate;
     data[offset++] = this.values.pEnergyFromEat;
     data[offset++] = this.values.pMinEnergy;
+    data[offset++] = this.values.pMaxEnergy;
+    data[offset++] = this.values.pReproduceEnabled;
+    data[offset++] = this.values.pReproduceThreshold;
+    data[offset++] = this.values.pReproduceSpawnRadius;
 
     while (offset < data.length) {
       data[offset++] = 0.0;

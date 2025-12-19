@@ -32,14 +32,19 @@ export class Controls {
    */
   createPanel(categoryName, definitions) {
     const panel = document.createElement('div');
-    panel.className = 'parameter-panel expanded'; // 기본 펼침 상태
+
+    // Load saved state from localStorage
+    const savedState = localStorage.getItem(`panel-state-${categoryName}`);
+    const isExpanded = savedState === null ? true : savedState === 'expanded';
+
+    panel.className = `parameter-panel ${isExpanded ? 'expanded' : 'collapsed'}`;
 
     const header = document.createElement('h3');
 
     // 토글 아이콘 추가
     const toggle = document.createElement('span');
     toggle.className = 'toggle';
-    toggle.textContent = '▼';
+    toggle.textContent = isExpanded ? '▼' : '▶';
 
     header.appendChild(toggle);
     header.appendChild(document.createTextNode(categoryName));
@@ -52,8 +57,10 @@ export class Controls {
       // 토글 아이콘 회전
       if (panel.classList.contains('collapsed')) {
         toggle.textContent = '▶';
+        localStorage.setItem(`panel-state-${categoryName}`, 'collapsed');
       } else {
         toggle.textContent = '▼';
+        localStorage.setItem(`panel-state-${categoryName}`, 'expanded');
       }
     });
 

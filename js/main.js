@@ -93,10 +93,13 @@ class HydrothermalVentSimulation {
       // 6. Setup UI controls
       this.setupUI();
 
-      // 7. Update GPU buffers with initial parameters
+      // 7. Load saved parameters from localStorage if available
+      this.loadFromLocalStorage();
+
+      // 8. Update GPU buffers with initial parameters
       this.updateParameters();
 
-      // 8. Render initial frame
+      // 9. Render initial frame
       this.renderer.render();
 
       console.log('Simulation initialized successfully');
@@ -169,19 +172,31 @@ class HydrothermalVentSimulation {
     const controlsContainer = document.getElementById('controls');
 
     const jsonSection = document.createElement('div');
-    jsonSection.className = 'parameter-panel expanded';
+
+    // Load saved state from localStorage
+    const savedState = localStorage.getItem('panel-state-Data');
+    const isExpanded = savedState === null ? true : savedState === 'expanded';
+
+    jsonSection.className = `parameter-panel ${isExpanded ? 'expanded' : 'collapsed'}`;
 
     const header = document.createElement('h3');
     const toggle = document.createElement('span');
     toggle.className = 'toggle';
-    toggle.textContent = '▼';
+    toggle.textContent = isExpanded ? '▼' : '▶';
     header.appendChild(toggle);
     header.appendChild(document.createTextNode('Data'));
 
     header.addEventListener('click', () => {
       jsonSection.classList.toggle('expanded');
       jsonSection.classList.toggle('collapsed');
-      toggle.textContent = jsonSection.classList.contains('collapsed') ? '▶' : '▼';
+
+      if (jsonSection.classList.contains('collapsed')) {
+        toggle.textContent = '▶';
+        localStorage.setItem('panel-state-Data', 'collapsed');
+      } else {
+        toggle.textContent = '▼';
+        localStorage.setItem('panel-state-Data', 'expanded');
+      }
     });
 
     jsonSection.appendChild(header);
@@ -200,10 +215,26 @@ class HydrothermalVentSimulation {
     const loadBtn = document.createElement('button');
     loadBtn.textContent = 'Load Parameters JSON';
     loadBtn.style.width = '100%';
+    loadBtn.style.marginBottom = '8px';
     loadBtn.addEventListener('click', () => this.loadParametersJSON());
+
+    // Save to localStorage button
+    const saveDefaultBtn = document.createElement('button');
+    saveDefaultBtn.textContent = 'Save as My Default';
+    saveDefaultBtn.style.width = '100%';
+    saveDefaultBtn.style.marginBottom = '8px';
+    saveDefaultBtn.addEventListener('click', () => this.saveToLocalStorage());
+
+    // Clear localStorage button
+    const clearDefaultBtn = document.createElement('button');
+    clearDefaultBtn.textContent = 'Clear Saved Settings';
+    clearDefaultBtn.style.width = '100%';
+    clearDefaultBtn.addEventListener('click', () => this.clearLocalStorage());
 
     content.appendChild(saveBtn);
     content.appendChild(loadBtn);
+    content.appendChild(saveDefaultBtn);
+    content.appendChild(clearDefaultBtn);
     jsonSection.appendChild(content);
 
     controlsContainer.appendChild(jsonSection);
@@ -254,6 +285,44 @@ class HydrothermalVentSimulation {
     });
 
     input.click();
+  }
+
+  /**
+   * Save current parameters to localStorage
+   */
+  saveToLocalStorage() {
+    const json = this.controls.exportParameters();
+    localStorage.setItem('hydrothermal-params', json);
+    console.log('Parameters saved to localStorage');
+    alert('Current parameters saved as your default!');
+  }
+
+  /**
+   * Clear saved parameters from localStorage
+   */
+  clearLocalStorage() {
+    localStorage.removeItem('hydrothermal-params');
+    console.log('Saved parameters cleared from localStorage');
+    alert('Saved settings cleared! Refresh page to use factory defaults.');
+  }
+
+  /**
+   * Load parameters from localStorage if available
+   */
+  loadFromLocalStorage() {
+    const saved = localStorage.getItem('hydrothermal-params');
+    if (saved) {
+      const success = this.controls.importParameters(saved);
+      if (success) {
+        console.log('Parameters loaded from localStorage');
+        return true;
+      } else {
+        console.warn('Failed to load saved parameters, using defaults');
+        localStorage.removeItem('hydrothermal-params');
+        return false;
+      }
+    }
+    return false;
   }
 
   /**
