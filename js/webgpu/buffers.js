@@ -332,7 +332,7 @@ export class SimulationBuffers {
         data[base + 1] = Math.random() * (this.gridHeight - 1);
         data[base + 2] = 0.0;
         data[base + 3] = 0.0;
-        data[base + 4] = 1.0;
+        data[base + 4] = 0.48;
 
         const typeU32 = new Uint32Array([1]); // type = 1 (predator)
         data[base + 5] = new Float32Array(typeU32.buffer)[0];

@@ -32,6 +32,12 @@
     <div id="canvas-container">
       <canvas id="renderCanvas" width="800" height="800"></canvas>
 
+      <!-- Entity selection overlay (marker + tether) -->
+      <svg id="selectionOverlay" class="selection-overlay" viewBox="0 0 800 800" preserveAspectRatio="none">
+        <line id="selectionTether" x1="0" y1="0" x2="0" y2="0" class="selection-tether hidden"></line>
+        <circle id="selectionMarker" cx="0" cy="0" r="6" class="selection-marker hidden"></circle>
+      </svg>
+
       <!-- 캔버스 오버레이: 우측 상단 정보 -->
       <div class="canvas-overlay">
         <div class="overlay-item">
@@ -83,6 +89,24 @@
       <!-- 단축키 힌트: 좌측 하단 -->
       <div class="shortcuts-hint">
         <kbd>Space</kbd> Pause/Resume &nbsp; <kbd>Alt+S</kbd> Save JSON &nbsp; <kbd>Alt+Z</kbd> Reset
+      </div>
+
+      <!-- Entity inspection modal -->
+      <div id="entityModal" class="entity-modal hidden">
+        <div class="entity-modal-header">
+          <span id="entityModalTitle" class="entity-modal-title">Entity</span>
+          <button id="closeEntityModal" class="entity-modal-close">×</button>
+        </div>
+        <div class="entity-modal-body">
+          <div class="entity-kv"><span>Type</span><span id="entityType">-</span></div>
+          <div class="entity-kv"><span>Index</span><span id="entityIndex">-</span></div>
+          <div class="entity-kv"><span>Pos</span><span id="entityPos">-</span></div>
+          <div class="entity-kv"><span>Vel</span><span id="entityVel">-</span></div>
+          <div class="entity-kv"><span>Energy</span><span id="entityEnergy">-</span></div>
+          <div class="entity-kv"><span>State</span><span id="entityState">-</span></div>
+          <div class="entity-kv"><span>Age</span><span id="entityAge">-</span></div>
+        </div>
+        <div class="entity-modal-resize-handle"></div>
       </div>
     </div>
 

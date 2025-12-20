@@ -46,6 +46,23 @@ class HydrothermalVentSimulation {
     // Chart modal drag/resize state
     this.modalDragState = { isDragging: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
     this.modalResizeState = { isResizing: false, startX: 0, startY: 0, startWidth: 0, startHeight: 0 };
+
+    // Entity selection/inspection (P / P2)
+    this.selection = {
+      active: false,
+      kind: null, // 'P' | 'P2'
+      index: -1,
+      last: null,
+      drag: { isDown: false, startX: 0, startY: 0, lastX: 0, lastY: 0 },
+      updateLoopRunning: false,
+      readInProgress: false,
+      lastReadTime: 0,
+      readIntervalMs: 120,
+      pickRadiusPx: 14,
+    };
+
+    this.entityModalDrag = { isDragging: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
+    this.entityModalResize = { isResizing: false, startX: 0, startY: 0, startWidth: 0, startHeight: 0 };
   }
 
   /**
@@ -179,6 +196,352 @@ class HydrothermalVentSimulation {
         this.toggleSimulation();
       }
     });
+
+    // Entity selection on canvas (works even when paused)
+    this.setupEntitySelection();
+  }
+
+  setupEntitySelection() {
+    const canvas = document.getElementById('renderCanvas');
+    const container = document.getElementById('canvas-container');
+    const modal = document.getElementById('entityModal');
+    const modalHeader = modal?.querySelector('.entity-modal-header');
+    const closeBtn = document.getElementById('closeEntityModal');
+    const resizeHandle = modal?.querySelector('.entity-modal-resize-handle');
+
+    if (!canvas || !container || !modal || !modalHeader || !closeBtn || !resizeHandle) {
+      console.warn('Entity selection UI elements missing');
+      return;
+    }
+
+    const onDown = (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('#entityModal')) return;
+      const rect = canvas.getBoundingClientRect();
+      if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
+
+      this.selection.drag.isDown = true;
+      this.selection.drag.startX = e.clientX;
+      this.selection.drag.startY = e.clientY;
+      this.selection.drag.lastX = e.clientX;
+      this.selection.drag.lastY = e.clientY;
+    };
+
+    const onMove = (e) => {
+      if (!this.selection.drag.isDown) return;
+      this.selection.drag.lastX = e.clientX;
+      this.selection.drag.lastY = e.clientY;
+    };
+
+    const onUp = async (e) => {
+      if (e.button !== 0) return;
+      if (!this.selection.drag.isDown) return;
+      this.selection.drag.isDown = false;
+
+      const pick = await this.pickNearestEntityAtClientPoint(e.clientX, e.clientY);
+      if (!pick) {
+        this.clearSelection();
+        return;
+      }
+
+      this.setSelection(pick.kind, pick.index);
+
+      const containerRect = container.getBoundingClientRect();
+      const margin = 12;
+      const preferredLeft = e.clientX - containerRect.left + margin;
+      const preferredTop = e.clientY - containerRect.top + margin;
+      const maxLeft = containerRect.width - modal.offsetWidth - margin;
+      const maxTop = containerRect.height - modal.offsetHeight - margin;
+      modal.style.left = `${Math.max(margin, Math.min(maxLeft, preferredLeft))}px`;
+      modal.style.top = `${Math.max(margin, Math.min(maxTop, preferredTop))}px`;
+      modal.classList.remove('hidden');
+
+      await this.refreshSelectedEntity(true);
+      this.ensureSelectionLoop();
+    };
+
+    canvas.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+
+    closeBtn.addEventListener('click', () => this.clearSelection());
+
+    // Modal drag
+    modalHeader.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.entity-modal-close')) return;
+      e.preventDefault();
+      this.entityModalDrag.isDragging = true;
+      const rect = modal.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      this.entityModalDrag.startX = e.clientX;
+      this.entityModalDrag.startY = e.clientY;
+      this.entityModalDrag.startLeft = rect.left - containerRect.left;
+      this.entityModalDrag.startTop = rect.top - containerRect.top;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this.entityModalDrag.isDragging) return;
+      const containerRect = container.getBoundingClientRect();
+      const deltaX = e.clientX - this.entityModalDrag.startX;
+      const deltaY = e.clientY - this.entityModalDrag.startY;
+      const nextLeft = this.entityModalDrag.startLeft + deltaX;
+      const nextTop = this.entityModalDrag.startTop + deltaY;
+
+      const margin = 8;
+      const maxLeft = containerRect.width - modal.offsetWidth - margin;
+      const maxTop = containerRect.height - modal.offsetHeight - margin;
+      modal.style.left = `${Math.max(margin, Math.min(maxLeft, nextLeft))}px`;
+      modal.style.top = `${Math.max(margin, Math.min(maxTop, nextTop))}px`;
+    });
+
+    window.addEventListener('mouseup', () => {
+      this.entityModalDrag.isDragging = false;
+    });
+
+    // Modal resize
+    resizeHandle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.entityModalResize.isResizing = true;
+      const rect = modal.getBoundingClientRect();
+      this.entityModalResize.startX = e.clientX;
+      this.entityModalResize.startY = e.clientY;
+      this.entityModalResize.startWidth = rect.width;
+      this.entityModalResize.startHeight = rect.height;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this.entityModalResize.isResizing) return;
+      const deltaX = e.clientX - this.entityModalResize.startX;
+      const deltaY = e.clientY - this.entityModalResize.startY;
+      const newWidth = Math.max(220, this.entityModalResize.startWidth + deltaX);
+      const newHeight = Math.max(140, this.entityModalResize.startHeight + deltaY);
+      modal.style.width = `${newWidth}px`;
+      modal.style.height = `${newHeight}px`;
+    });
+
+    window.addEventListener('mouseup', () => {
+      this.entityModalResize.isResizing = false;
+    });
+  }
+
+  clearSelection() {
+    this.selection.active = false;
+    this.selection.kind = null;
+    this.selection.index = -1;
+    this.selection.last = null;
+
+    const modal = document.getElementById('entityModal');
+    modal?.classList.add('hidden');
+
+    const marker = document.getElementById('selectionMarker');
+    const tether = document.getElementById('selectionTether');
+    marker?.classList.add('hidden');
+    tether?.classList.add('hidden');
+  }
+
+  setSelection(kind, index) {
+    this.selection.active = true;
+    this.selection.kind = kind;
+    this.selection.index = index;
+  }
+
+  ensureSelectionLoop() {
+    if (this.selection.updateLoopRunning) return;
+    this.selection.updateLoopRunning = true;
+
+    const tick = async () => {
+      if (!this.selection.active) {
+        this.selection.updateLoopRunning = false;
+        return;
+      }
+
+      this.updateSelectionOverlay();
+
+      const now = performance.now();
+      if (this.isRunning && (now - this.selection.lastReadTime) >= this.selection.readIntervalMs) {
+        await this.refreshSelectedEntity(false);
+      }
+
+      requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
+  }
+
+  updateSelectionOverlay() {
+    const canvas = document.getElementById('renderCanvas');
+    const container = document.getElementById('canvas-container');
+    const overlay = document.getElementById('selectionOverlay');
+    const marker = document.getElementById('selectionMarker');
+    const tether = document.getElementById('selectionTether');
+    const modal = document.getElementById('entityModal');
+
+    if (!canvas || !container || !overlay || !marker || !tether || !modal) return;
+    if (!this.selection.active || !this.selection.last) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    overlay.setAttribute('viewBox', `0 0 ${containerRect.width} ${containerRect.height}`);
+
+    const gridW = this.parameters.get('gridWidth');
+    const gridH = this.parameters.get('gridHeight');
+    const xPx = rect.left + (this.selection.last.pos.x / (gridW - 1)) * rect.width;
+    const yPx = rect.top + (this.selection.last.pos.y / (gridH - 1)) * rect.height;
+    const xIn = xPx - containerRect.left;
+    const yIn = yPx - containerRect.top;
+
+    const modalRect = modal.getBoundingClientRect();
+    const anchorX = modalRect.left - containerRect.left + 10;
+    const anchorY = modalRect.top - containerRect.top + 18;
+
+    marker.setAttribute('cx', `${xIn}`);
+    marker.setAttribute('cy', `${yIn}`);
+    marker.classList.remove('hidden');
+
+    tether.setAttribute('x1', `${xIn}`);
+    tether.setAttribute('y1', `${yIn}`);
+    tether.setAttribute('x2', `${anchorX}`);
+    tether.setAttribute('y2', `${anchorY}`);
+    tether.classList.remove('hidden');
+  }
+
+  async pickNearestEntityAtClientPoint(clientX, clientY) {
+    const canvas = document.getElementById('renderCanvas');
+    if (!canvas) return null;
+    if (!this.gpuContext || !this.engine || !this.buffers) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    const u = (clientX - rect.left) / rect.width;
+    const v = (clientY - rect.top) / rect.height;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return null;
+
+    const gridW = this.parameters.get('gridWidth');
+    const gridH = this.parameters.get('gridHeight');
+    const targetX = u * (gridW - 1);
+    const targetY = v * (gridH - 1);
+
+    const pxPerWorld = rect.width / (gridW - 1);
+    const radiusWorld = this.selection.pickRadiusPx / Math.max(pxPerWorld, 1e-6);
+    const radius2 = radiusWorld * radiusWorld;
+
+    const pPick = await this.findNearestInBuffer(this.engine.getCurrentPBuffer(), this.buffers.maxParticles, targetX, targetY, radius2);
+    const p2Pick = await this.findNearestInBuffer(this.engine.getCurrentP2Buffer(), this.buffers.maxPredators, targetX, targetY, radius2);
+
+    if (!pPick && !p2Pick) return null;
+    if (pPick && !p2Pick) return { kind: 'P', index: pPick.index };
+    if (p2Pick && !pPick) return { kind: 'P2', index: p2Pick.index };
+    return pPick.dist2 <= p2Pick.dist2 ? { kind: 'P', index: pPick.index } : { kind: 'P2', index: p2Pick.index };
+  }
+
+  async findNearestInBuffer(gpuBuffer, capacity, targetX, targetY, radius2) {
+    const size = gpuBuffer.size;
+    const readBuffer = this.gpuContext.device.createBuffer({
+      size,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+
+    const encoder = this.gpuContext.device.createCommandEncoder();
+    encoder.copyBufferToBuffer(gpuBuffer, 0, readBuffer, 0, size);
+    this.gpuContext.device.queue.submit([encoder.finish()]);
+
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+    const f32View = new Float32Array(arrayBuffer);
+    const u32View = new Uint32Array(arrayBuffer);
+
+    let bestIndex = -1;
+    let bestDist2 = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < capacity; i++) {
+      const base = i * 8;
+      const state = u32View[base + 6];
+      if (state === 0) continue;
+
+      const x = f32View[base];
+      const y = f32View[base + 1];
+      const dx = x - targetX;
+      const dy = y - targetY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= radius2 && d2 < bestDist2) {
+        bestDist2 = d2;
+        bestIndex = i;
+      }
+    }
+
+    readBuffer.unmap();
+    readBuffer.destroy();
+
+    if (bestIndex === -1) return null;
+    return { index: bestIndex, dist2: bestDist2 };
+  }
+
+  async refreshSelectedEntity(force) {
+    if (!this.selection.active) return;
+    if (this.selection.readInProgress) return;
+    const now = performance.now();
+    if (!force && (now - this.selection.lastReadTime) < this.selection.readIntervalMs) return;
+
+    this.selection.readInProgress = true;
+    try {
+      const buffer = this.selection.kind === 'P2' ? this.engine.getCurrentP2Buffer() : this.engine.getCurrentPBuffer();
+      const entity = await this.readParticleStructAt(buffer, this.selection.index);
+      this.selection.last = entity;
+      this.selection.lastReadTime = now;
+      this.updateEntityModal(entity);
+      this.updateSelectionOverlay();
+    } finally {
+      this.selection.readInProgress = false;
+    }
+  }
+
+  async readParticleStructAt(gpuBuffer, index) {
+    const stride = 32;
+    const offset = index * stride;
+    const readBuffer = this.gpuContext.device.createBuffer({
+      size: stride,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+
+    const encoder = this.gpuContext.device.createCommandEncoder();
+    encoder.copyBufferToBuffer(gpuBuffer, offset, readBuffer, 0, stride);
+    this.gpuContext.device.queue.submit([encoder.finish()]);
+
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const data = readBuffer.getMappedRange();
+    const dv = new DataView(data);
+    const posX = dv.getFloat32(0, true);
+    const posY = dv.getFloat32(4, true);
+    const velX = dv.getFloat32(8, true);
+    const velY = dv.getFloat32(12, true);
+    const energy = dv.getFloat32(16, true);
+    const type = dv.getUint32(20, true);
+    const state = dv.getUint32(24, true);
+    const age = dv.getFloat32(28, true);
+    readBuffer.unmap();
+    readBuffer.destroy();
+
+    return { pos: { x: posX, y: posY }, vel: { x: velX, y: velY }, energy, type, state, age };
+  }
+
+  updateEntityModal(entity) {
+    const title = document.getElementById('entityModalTitle');
+    const typeEl = document.getElementById('entityType');
+    const indexEl = document.getElementById('entityIndex');
+    const posEl = document.getElementById('entityPos');
+    const velEl = document.getElementById('entityVel');
+    const energyEl = document.getElementById('entityEnergy');
+    const stateEl = document.getElementById('entityState');
+    const ageEl = document.getElementById('entityAge');
+
+    if (title) title.textContent = `${this.selection.kind} #${this.selection.index}`;
+    if (typeEl) typeEl.textContent = `${entity.type}`;
+    if (indexEl) indexEl.textContent = `${this.selection.index}`;
+    if (posEl) posEl.textContent = `(${entity.pos.x.toFixed(2)}, ${entity.pos.y.toFixed(2)})`;
+    if (velEl) velEl.textContent = `(${entity.vel.x.toFixed(2)}, ${entity.vel.y.toFixed(2)})`;
+    if (energyEl) energyEl.textContent = `${entity.energy.toFixed(3)}`;
+    if (stateEl) stateEl.textContent = `${entity.state}`;
+    if (ageEl) ageEl.textContent = `${entity.age.toFixed(2)}`;
   }
 
   /**
@@ -734,10 +1097,12 @@ class HydrothermalVentSimulation {
     if (name === 'pCount') {
       this.buffers.initializeParticles(value);
       this.engine.pBufferIndex = 0;
+      this.clearSelection();
     }
     if (name === 'p2Count') {
       this.buffers.initializePredators(value);
       this.engine.p2BufferIndex = 0;
+      this.clearSelection();
     }
 
     this.updateParameters();
@@ -821,6 +1186,9 @@ class HydrothermalVentSimulation {
     // Update display
     this.updateParameters();
     this.renderer.render();
+
+    // Buffers were reinitialized; clear selection
+    this.clearSelection();
 
     console.log('Simulation reset');
   }
