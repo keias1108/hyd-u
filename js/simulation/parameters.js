@@ -78,6 +78,24 @@ export const PARAMETER_DEFS = [
   new ParameterDefinition('pReproduceThreshold', 1.5, 0.5, 3.0, 0.1, 'Particles', 'Energy required to reproduce'),
   new ParameterDefinition('pReproduceSpawnRadius', 5.0, 1.0, 20.0, 0.5, 'Particles', 'Child spawn distance from parent'),
 
+  // Predator Particles (P2)
+  new ParameterDefinition('p2Count', 512, 0, 16384, 256, 'Predators', 'Initial predator count (can grow via reproduction)'),
+  new ParameterDefinition('p2BiasStrength', 0.002, 0, 5, 0.01, 'Predators', 'Bias toward ∇P'),
+  new ParameterDefinition('p2Friction', 0.25, 0, 2, 0.01, 'Predators', 'Velocity friction'),
+  new ParameterDefinition('p2NoiseStrength', 0.02, 0, 2, 0.01, 'Predators', 'Random walk strength'),
+  new ParameterDefinition('p2Speed', 1.2, 0, 5, 0.01, 'Predators', 'Movement speed scale'),
+  new ParameterDefinition('p2EatEnabled', 1, 0, 1, 1, 'Predators', 'Predator eating ON/OFF'),
+  new ParameterDefinition('p2EatAmount', 0.15, 0, 0.5, 0.005, 'Predators', 'Local P density usage per step'),
+  new ParameterDefinition('p2PointSize', 1.8, 1, 8, 0.5, 'Predators', 'Predator point size (px)'),
+  new ParameterDefinition('p2EnergyDecayRate', 0.004, 0, 0.1, 0.0001, 'Predators', 'Energy decay per step'),
+  new ParameterDefinition('p2EnergyFromEat', 0.2, 0, 0.5, 0.001, 'Predators', 'Energy gain coefficient from predation'),
+  new ParameterDefinition('p2MinEnergy', 0.1, 0, 1, 0.01, 'Predators', 'Minimum energy threshold for survival'),
+  new ParameterDefinition('p2MaxEnergy', 2.5, 0.5, 5.0, 0.1, 'Predators', 'Maximum energy cap'),
+  new ParameterDefinition('p2ReproduceEnabled', 1, 0, 1, 1, 'Predators', 'Reproduction ON/OFF'),
+  new ParameterDefinition('p2ReproduceThreshold', 1.6, 0.5, 3.0, 0.1, 'Predators', 'Energy required to reproduce'),
+  new ParameterDefinition('p2ReproduceSpawnRadius', 6.0, 1.0, 20.0, 0.5, 'Predators', 'Child spawn distance from parent'),
+  new ParameterDefinition('p2PredationStrength', 0.015, 0, 0.2, 0.001, 'Predators', 'P energy loss per nearby predator'),
+
   // Simulation
   new ParameterDefinition('deltaTime', 0.05, 0.001, 0.5, 0.001, 'Simulation', 'Time step (dt)'),
   new ParameterDefinition('speedMultiplier', 10, 1, 10, 1, 'Simulation', 'Speed multiplier (sub-steps per frame)'),
@@ -222,6 +240,33 @@ export class SimulationParameters {
     while (offset < data.length) {
       data[offset++] = 0.0;
     }
+
+    return data;
+  }
+
+  /**
+   * Serialize predator parameters to Float32Array (separate uniform buffer)
+   */
+  toPredatorUniformData() {
+    const data = new Float32Array(16);
+    let offset = 0;
+
+    data[offset++] = this.values.p2Count;
+    data[offset++] = this.values.p2BiasStrength;
+    data[offset++] = this.values.p2Friction;
+    data[offset++] = this.values.p2NoiseStrength;
+    data[offset++] = this.values.p2Speed;
+    data[offset++] = this.values.p2EatEnabled;
+    data[offset++] = this.values.p2EatAmount;
+    data[offset++] = this.values.p2PointSize;
+    data[offset++] = this.values.p2EnergyDecayRate;
+    data[offset++] = this.values.p2EnergyFromEat;
+    data[offset++] = this.values.p2MinEnergy;
+    data[offset++] = this.values.p2MaxEnergy;
+    data[offset++] = this.values.p2ReproduceEnabled;
+    data[offset++] = this.values.p2ReproduceThreshold;
+    data[offset++] = this.values.p2ReproduceSpawnRadius;
+    data[offset++] = this.values.p2PredationStrength;
 
     return data;
   }

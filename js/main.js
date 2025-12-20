@@ -32,7 +32,7 @@ class HydrothermalVentSimulation {
     // Stats tracking
     this.lastStatsUpdate = 0;
     this.statsUpdateInterval = 100; // Update stats every 100ms
-    this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0, mTotal: 0, bTotal: 0, pTotal: 0 };
+    this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0, mTotal: 0, bTotal: 0, pTotal: 0, p2Total: 0 };
 
     // Virtual simulation time (for sub-stepping)
     this.virtualTime = 0;
@@ -81,6 +81,7 @@ class HydrothermalVentSimulation {
       this.buffers.initializeBField();
       this.buffers.initializeBLongField();
       this.buffers.initializeParticles(this.parameters.get('pCount'));
+      this.buffers.initializePredators(this.parameters.get('p2Count'));
 
       // 4. Initialize simulation engine
       this.engine = new SimulationEngine(
@@ -596,6 +597,15 @@ class HydrothermalVentSimulation {
             borderWidth: 2,
             pointRadius: 0,
             tension: 0.1
+          },
+          {
+            label: 'P2 total',
+            data: [],
+            borderColor: 'rgb(255, 138, 101)',
+            backgroundColor: 'rgba(255, 138, 101, 0.12)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1
           }
         ]
       },
@@ -675,6 +685,7 @@ class HydrothermalVentSimulation {
     this.chart.data.datasets[2].data.push(stats.hAvg);
     this.chart.data.datasets[3].data.push(stats.bTotal);
     this.chart.data.datasets[4].data.push(stats.pTotal);
+    this.chart.data.datasets[5].data.push(stats.p2Total);
 
     // Keep only last N data points
     if (this.chart.data.labels.length > this.maxChartDataPoints) {
@@ -700,6 +711,10 @@ class HydrothermalVentSimulation {
     // Update particle parameters buffer
     const particleParamsData = this.parameters.toParticleUniformData();
     this.buffers.updateParticleParamsBuffer(particleParamsData);
+
+    // Update predator parameters buffer
+    const predatorParamsData = this.parameters.toPredatorUniformData();
+    this.buffers.updatePredatorParamsBuffer(predatorParamsData);
   }
 
   /**
@@ -719,6 +734,10 @@ class HydrothermalVentSimulation {
     if (name === 'pCount') {
       this.buffers.initializeParticles(value);
       this.engine.pBufferIndex = 0;
+    }
+    if (name === 'p2Count') {
+      this.buffers.initializePredators(value);
+      this.engine.p2BufferIndex = 0;
     }
 
     this.updateParameters();
@@ -774,6 +793,7 @@ class HydrothermalVentSimulation {
     this.buffers.initializeBField();
     this.buffers.initializeBLongField();
     this.buffers.initializeParticles(this.parameters.get('pCount'));
+    this.buffers.initializePredators(this.parameters.get('p2Count'));
 
     // Reset engine frame count and buffer indices
     this.engine.frameCount = 0;
@@ -782,6 +802,7 @@ class HydrothermalVentSimulation {
     this.engine.mBufferIndex = 0;
     this.engine.hBufferIndex = 0;
     this.engine.pBufferIndex = 0;
+    this.engine.p2BufferIndex = 0;
 
     // Reset FPS counter
     this.frameCount = 0;
@@ -950,8 +971,9 @@ class HydrothermalVentSimulation {
 
       // Count alive particles from GPU buffer
       const pTotal = await this.countAliveParticles();
+      const p2Total = await this.countAlivePredators();
 
-      return { rTotal, oAvg, hAvg, mTotal, bTotal, pTotal };
+      return { rTotal, oAvg, hAvg, mTotal, bTotal, pTotal, p2Total };
     } catch (error) {
       console.error('Failed to compute field stats:', error);
       return this.currentStats; // Return last valid stats
@@ -1010,6 +1032,52 @@ class HydrothermalVentSimulation {
   }
 
   /**
+   * Count alive predators by reading predator buffer from GPU
+   */
+  async countAlivePredators() {
+    try {
+      const p2Buffer = this.engine.getCurrentP2Buffer();
+      const size = p2Buffer.size;
+
+      const readBuffer = this.gpuContext.device.createBuffer({
+        size: size,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+      });
+
+      const encoder = this.gpuContext.device.createCommandEncoder();
+      encoder.copyBufferToBuffer(p2Buffer, 0, readBuffer, 0, size);
+      this.gpuContext.device.queue.submit([encoder.finish()]);
+
+      await readBuffer.mapAsync(GPUMapMode.READ);
+      const arrayBuffer = readBuffer.getMappedRange();
+
+      const particleStride = 32;
+      const particleStrideInU32 = particleStride / 4;
+      const stateOffsetInU32 = 24 / 4;
+
+      const u32View = new Uint32Array(arrayBuffer);
+      const maxPredators = this.buffers.maxPredators;
+
+      let aliveCount = 0;
+      for (let i = 0; i < maxPredators; i++) {
+        const stateIndex = i * particleStrideInU32 + stateOffsetInU32;
+        const state = u32View[stateIndex];
+        if (state !== 0) {
+          aliveCount++;
+        }
+      }
+
+      readBuffer.unmap();
+      readBuffer.destroy();
+
+      return aliveCount;
+    } catch (error) {
+      console.error('Failed to count alive predators:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Update statistics display
    */
   updateStatsDisplay() {
@@ -1019,6 +1087,7 @@ class HydrothermalVentSimulation {
     const mTotalEl = document.getElementById('m-total');
     const bTotalEl = document.getElementById('b-total');
     const pTotalEl = document.getElementById('p-total');
+    const p2TotalEl = document.getElementById('p2-total');
 
     if (oAvgEl) {
       oAvgEl.textContent = this.currentStats.oAvg.toFixed(3);
@@ -1037,6 +1106,9 @@ class HydrothermalVentSimulation {
     }
     if (pTotalEl) {
       pTotalEl.textContent = this.currentStats.pTotal.toFixed(0);
+    }
+    if (p2TotalEl) {
+      p2TotalEl.textContent = this.currentStats.p2Total.toFixed(0);
     }
   }
 

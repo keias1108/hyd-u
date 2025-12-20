@@ -14,8 +14,10 @@ export class Renderer {
     // Render pipeline
     this.renderPipeline = null;
     this.particlePipeline = null;
+    this.predatorPipeline = null;
     this.renderBindGroup = null;
     this.particleBindGroup = null;
+    this.predatorBindGroup = null;
 
     // Presentation format
     this.presentationFormat = context.getCurrentTexture().format;
@@ -28,6 +30,7 @@ export class Renderer {
     // Load shader code
     const shaderCode = await this.loadShader('shaders/render/visualize.wgsl');
     const particleShaderCode = await this.loadShader('shaders/render/renderParticles.wgsl');
+    const predatorShaderCode = await this.loadShader('shaders/render/renderPredators.wgsl');
 
     // Create shader module
     const shaderModule = this.device.createShaderModule({
@@ -135,9 +138,67 @@ export class Renderer {
       },
     });
 
+    // Predator pipeline
+    const predatorShaderModule = this.device.createShaderModule({
+      label: 'Predator Render Shader',
+      code: predatorShaderCode,
+    });
+
+    const predatorBindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Predator Render Bind Group Layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }, // predators
+        { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 2, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },           // predator params
+      ],
+    });
+
+    const predatorPipelineLayout = this.device.createPipelineLayout({
+      label: 'Predator Render Pipeline Layout',
+      bindGroupLayouts: [predatorBindGroupLayout],
+    });
+
+    this.predatorPipeline = this.device.createRenderPipeline({
+      label: 'Predator Render Pipeline',
+      layout: predatorPipelineLayout,
+      vertex: {
+        module: predatorShaderModule,
+        entryPoint: 'vs_main',
+        buffers: [],
+      },
+      fragment: {
+        module: predatorShaderModule,
+        entryPoint: 'fs_main',
+        targets: [
+          {
+            format: this.presentationFormat,
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one',
+                operation: 'add',
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one',
+                operation: 'add',
+              },
+            },
+          },
+        ],
+      },
+      primitive: {
+        topology: 'triangle-list',
+      },
+      multisample: {
+        count: 1,
+      },
+    });
+
     // Create initial bind group (will be updated in render if O buffer changes)
     this.createBindGroup();
     this.createParticleBindGroup();
+    this.createPredatorBindGroup();
 
     console.log('Renderer initialized');
   }
@@ -195,6 +256,19 @@ export class Renderer {
     });
   }
 
+  createPredatorBindGroup() {
+    const currentP2Buffer = this.simulationEngine.getCurrentP2Buffer();
+    this.predatorBindGroup = this.device.createBindGroup({
+      label: 'Predator Render Bind Group',
+      layout: this.predatorPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: currentP2Buffer } },
+        { binding: 1, resource: { buffer: this.buffers.gridInfoBuffer } },
+        { binding: 2, resource: { buffer: this.buffers.predatorParamsBuffer } },
+      ],
+    });
+  }
+
   /**
    * Render current frame
    */
@@ -202,6 +276,7 @@ export class Renderer {
     // Recreate bind group with current O buffer
     this.createBindGroup();
     this.createParticleBindGroup();
+    this.createPredatorBindGroup();
 
     // Get current texture from canvas context
     const textureView = this.context.getCurrentTexture().createView();
@@ -233,6 +308,12 @@ export class Renderer {
     renderPass.setBindGroup(0, this.particleBindGroup);
     const particleCount = Math.floor(this.parameters.get('pCount'));
     renderPass.draw(6, particleCount, 0, 0); // 6 verts per quad, instanced
+
+    // Draw predators on top
+    renderPass.setPipeline(this.predatorPipeline);
+    renderPass.setBindGroup(0, this.predatorBindGroup);
+    const predatorCount = Math.floor(this.parameters.get('p2Count'));
+    renderPass.draw(6, predatorCount, 0, 0);
     renderPass.end();
 
     // Submit commands

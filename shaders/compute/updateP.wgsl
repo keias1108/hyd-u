@@ -57,6 +57,25 @@ struct ParticleParams {
   _pad1: f32,
 }
 
+struct PredatorParams {
+  p2Count: f32,
+  p2BiasStrength: f32,
+  p2Friction: f32,
+  p2NoiseStrength: f32,
+  p2Speed: f32,
+  p2EatEnabled: f32,
+  p2EatAmount: f32,
+  p2PointSize: f32,
+  p2EnergyDecayRate: f32,
+  p2EnergyFromEat: f32,
+  p2MinEnergy: f32,
+  p2MaxEnergy: f32,
+  p2ReproduceEnabled: f32,
+  p2ReproduceThreshold: f32,
+  p2ReproduceSpawnRadius: f32,
+  p2PredationStrength: f32,
+}
+
 struct Particle {
   pos: vec2<f32>,
   vel: vec2<f32>,
@@ -72,6 +91,8 @@ struct Particle {
 @group(0) @binding(3) var<uniform> gridInfo: GridInfo;
 @group(0) @binding(4) var<uniform> particleParams: ParticleParams;
 @group(0) @binding(5) var<uniform> simParams: SimParams;
+@group(0) @binding(6) var<storage, read_write> p2Density: array<atomic<u32>>;
+@group(0) @binding(7) var<uniform> predatorParams: PredatorParams;
 
 fn pcg_hash(v: u32) -> u32 {
   var state = v * 747796405u + 2891336453u;
@@ -227,6 +248,13 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
 
     // Convert consumed B to energy
     p.energy = p.energy + consumeAmount * particleParams.pEnergyFromEat;
+  }
+
+  // Predator pressure: energy loss when predators are nearby
+  let predIdx = u32(p.pos.y) * gridW + u32(p.pos.x);
+  let localPredators = f32(atomicLoad(&p2Density[predIdx]));
+  if (localPredators > 0.0) {
+    p.energy = p.energy - predatorParams.p2PredationStrength * dt * localPredators;
   }
 
   // Reproduction logic

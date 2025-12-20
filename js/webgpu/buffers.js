@@ -10,6 +10,7 @@ export class SimulationBuffers {
     this.gridHeight = gridHeight;
     this.gridSize = gridWidth * gridHeight;
     this.maxParticles = 16384; // fixed max particle capacity
+    this.maxPredators = 16384; // fixed max predator capacity
 
     // Create all buffers
     this.createFieldBuffers();
@@ -98,6 +99,34 @@ export class SimulationBuffers {
       label: 'Particle Buffer B'
     });
 
+    // Predator particle buffers (ping-pong)
+    const predatorBufferSize = this.maxPredators * particleStride;
+    this.predatorBufferA = this.device.createBuffer({
+      size: predatorBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'Predator Buffer A'
+    });
+
+    this.predatorBufferB = this.device.createBuffer({
+      size: predatorBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'Predator Buffer B'
+    });
+
+    // Particle density buffers (atomic u32 per cell)
+    const densityBufferSize = this.gridSize * 4; // u32 = 4 bytes
+    this.pDensity = this.device.createBuffer({
+      size: densityBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'P Density Buffer'
+    });
+
+    this.p2Density = this.device.createBuffer({
+      size: densityBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'P2 Density Buffer'
+    });
+
     // H field (ping-pong for diffusion)
     this.hFieldA = this.device.createBuffer({
       size: fieldBufferSize,
@@ -138,6 +167,13 @@ export class SimulationBuffers {
       size: 256,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       label: 'Particle Parameters Buffer'
+    });
+
+    // Predator parameters
+    this.predatorParamsBuffer = this.device.createBuffer({
+      size: 256,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      label: 'Predator Parameters Buffer'
     });
 
     // Render parameters (visualization mode, color scheme)
@@ -282,6 +318,45 @@ export class SimulationBuffers {
   }
 
   /**
+   * Initialize predator buffers with random positions, zero velocity, and default states
+   * Particle structure: pos(vec2), vel(vec2), energy(f32), type(u32), state(u32), age(f32)
+   */
+  initializePredators(activeCount) {
+    const data = new Float32Array(this.maxPredators * 8);
+
+    for (let i = 0; i < this.maxPredators; i++) {
+      const base = i * 8;
+
+      if (i < activeCount) {
+        data[base] = Math.random() * this.gridWidth;
+        data[base + 1] = Math.random() * this.gridHeight;
+        data[base + 2] = 0.0;
+        data[base + 3] = 0.0;
+        data[base + 4] = 1.0;
+
+        const typeU32 = new Uint32Array([1]); // type = 1 (predator)
+        data[base + 5] = new Float32Array(typeU32.buffer)[0];
+
+        const stateU32 = new Uint32Array([1]);
+        data[base + 6] = new Float32Array(stateU32.buffer)[0];
+
+        data[base + 7] = Math.random() * Math.PI * 2;
+      } else {
+        for (let j = 0; j < 8; j++) {
+          data[base + j] = 0.0;
+        }
+        const stateU32 = new Uint32Array([0]);
+        data[base + 6] = new Float32Array(stateU32.buffer)[0];
+      }
+    }
+
+    this.device.queue.writeBuffer(this.predatorBufferA, 0, data);
+    this.device.queue.writeBuffer(this.predatorBufferB, 0, data);
+
+    console.log(`Initialized predators: active ${activeCount}, capacity ${this.maxPredators}, stride 32 bytes`);
+  }
+
+  /**
    * Update simulation parameters buffer
    */
   updateParamsBuffer(params) {
@@ -293,6 +368,13 @@ export class SimulationBuffers {
    */
   updateParticleParamsBuffer(params) {
     this.device.queue.writeBuffer(this.particleParamsBuffer, 0, params);
+  }
+
+  /**
+   * Update predator parameters buffer
+   */
+  updatePredatorParamsBuffer(params) {
+    this.device.queue.writeBuffer(this.predatorParamsBuffer, 0, params);
   }
 
   /**
@@ -383,5 +465,19 @@ export class SimulationBuffers {
    */
   getParticleBufferNext(index) {
     return index === 0 ? this.particleBufferB : this.particleBufferA;
+  }
+
+  /**
+   * Get current predator buffer based on ping-pong index
+   */
+  getPredatorBufferCurrent(index) {
+    return index === 0 ? this.predatorBufferA : this.predatorBufferB;
+  }
+
+  /**
+   * Get next predator buffer based on ping-pong index
+   */
+  getPredatorBufferNext(index) {
+    return index === 0 ? this.predatorBufferB : this.predatorBufferA;
   }
 }

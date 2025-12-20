@@ -26,6 +26,7 @@ export class SimulationEngine {
 
     // Ping-pong buffer index for Particles
     this.pBufferIndex = 0;
+    this.p2BufferIndex = 0;
 
     // Frame counter
     this.frameCount = 0;
@@ -38,6 +39,9 @@ export class SimulationEngine {
     this.hPipeline = null;
     this.hDiffusePipeline = null;
     this.pPipeline = null;
+    this.p2Pipeline = null;
+    this.clearDensityPipeline = null;
+    this.accumulateDensityPipeline = null;
 
     // Bind groups
     this.rBindGroup = null;
@@ -63,6 +67,9 @@ export class SimulationEngine {
     const updateHCode = await this.loadShader('shaders/compute/updateH.wgsl');
     const diffuseHCode = await this.loadShader('shaders/compute/diffuseH.wgsl');
     const updatePCode = await this.loadShader('shaders/compute/updateP.wgsl');
+    const updateP2Code = await this.loadShader('shaders/compute/updateP2.wgsl');
+    const clearDensityCode = await this.loadShader('shaders/compute/clearDensity.wgsl');
+    const accumulateDensityCode = await this.loadShader('shaders/compute/accumulateDensity.wgsl');
 
     // Create pipelines
     await this.createRPipeline(updateRCode);
@@ -72,6 +79,9 @@ export class SimulationEngine {
     await this.createHPipeline(updateHCode);
     await this.createHDiffusePipeline(diffuseHCode);
     await this.createPPipeline(updatePCode);
+    await this.createP2Pipeline(updateP2Code);
+    await this.createClearDensityPipeline(clearDensityCode);
+    await this.createAccumulateDensityPipeline(accumulateDensityCode);
 
     console.log('Simulation engine initialized with H field');
   }
@@ -347,6 +357,8 @@ export class SimulationEngine {
         { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
         { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // particleParams
         { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // simParams
+        { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // p2Density
+        { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // predatorParams
       ],
     });
 
@@ -364,6 +376,108 @@ export class SimulationEngine {
       },
     });
   }
+
+  /**
+   * Create Predator update pipeline
+   */
+  async createP2Pipeline(code) {
+    const shaderModule = this.device.createShaderModule({
+      label: 'Predator Update Shader',
+      code: code,
+    });
+
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Predator Bind Group Layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // predatorsIn
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // predatorsOut
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // pDensity
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // predatorParams
+        { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // simParams
+      ],
+    });
+
+    const pipelineLayout = this.device.createPipelineLayout({
+      label: 'Predator Pipeline Layout',
+      bindGroupLayouts: [bindGroupLayout],
+    });
+
+    this.p2Pipeline = this.device.createComputePipeline({
+      label: 'Predator Compute Pipeline',
+      layout: pipelineLayout,
+      compute: {
+        module: shaderModule,
+        entryPoint: 'main',
+      },
+    });
+  }
+
+  /**
+   * Create density clear pipeline
+   */
+  async createClearDensityPipeline(code) {
+    const shaderModule = this.device.createShaderModule({
+      label: 'Density Clear Shader',
+      code: code,
+    });
+
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Density Clear Bind Group Layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, // density
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }, // gridInfo
+      ],
+    });
+
+    const pipelineLayout = this.device.createPipelineLayout({
+      label: 'Density Clear Pipeline Layout',
+      bindGroupLayouts: [bindGroupLayout],
+    });
+
+    this.clearDensityPipeline = this.device.createComputePipeline({
+      label: 'Density Clear Pipeline',
+      layout: pipelineLayout,
+      compute: {
+        module: shaderModule,
+        entryPoint: 'main',
+      },
+    });
+  }
+
+  /**
+   * Create density accumulation pipeline
+   */
+  async createAccumulateDensityPipeline(code) {
+    const shaderModule = this.device.createShaderModule({
+      label: 'Density Accumulate Shader',
+      code: code,
+    });
+
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Density Accumulate Bind Group Layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // particles
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // density
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
+      ],
+    });
+
+    const pipelineLayout = this.device.createPipelineLayout({
+      label: 'Density Accumulate Pipeline Layout',
+      bindGroupLayouts: [bindGroupLayout],
+    });
+
+    this.accumulateDensityPipeline = this.device.createComputePipeline({
+      label: 'Density Accumulate Pipeline',
+      layout: pipelineLayout,
+      compute: {
+        module: shaderModule,
+        entryPoint: 'main',
+      },
+    });
+  }
+
 
   /**
    * Execute one simulation step
@@ -541,7 +655,122 @@ export class SimulationEngine {
     // Swap M buffer index
     this.mBufferIndex = 1 - this.mBufferIndex;
 
-    // 7. Update Particles (follow ∇B)
+    // 7. Clear P density buffer
+    {
+      const pass = encoder.beginComputePass({ label: 'Clear P Density Buffer' });
+      pass.setPipeline(this.clearDensityPipeline);
+
+      const clearWorkgroups = Math.ceil((this.buffers.gridWidth * this.buffers.gridHeight) / 256);
+
+      const pDensityBindGroup = this.device.createBindGroup({
+        label: 'Clear P Density Bind Group',
+        layout: this.clearDensityPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.buffers.pDensity } },
+          { binding: 1, resource: { buffer: this.buffers.gridInfoBuffer } },
+        ],
+      });
+
+      pass.setBindGroup(0, pDensityBindGroup);
+      pass.dispatchWorkgroups(clearWorkgroups);
+      pass.end();
+    }
+
+    // 8. Accumulate P density
+    {
+      const pass = encoder.beginComputePass({ label: 'Accumulate P Density' });
+      pass.setPipeline(this.accumulateDensityPipeline);
+
+      const currentPBuffer = this.buffers.getParticleBufferCurrent(this.pBufferIndex);
+      const pDensityBindGroup = this.device.createBindGroup({
+        label: 'Accumulate P Density Bind Group',
+        layout: this.accumulateDensityPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentPBuffer } },
+          { binding: 1, resource: { buffer: this.buffers.pDensity } },
+          { binding: 2, resource: { buffer: this.buffers.gridInfoBuffer } },
+        ],
+      });
+
+      const particleWorkgroups = Math.ceil(this.buffers.maxParticles / 64);
+      pass.setBindGroup(0, pDensityBindGroup);
+      pass.dispatchWorkgroups(particleWorkgroups);
+      pass.end();
+    }
+
+    // 9. Update Predators (follow ∇P)
+    {
+      const pass = encoder.beginComputePass({ label: 'Update P2 Predators' });
+      pass.setPipeline(this.p2Pipeline);
+
+      const currentP2Buffer = this.buffers.getPredatorBufferCurrent(this.p2BufferIndex);
+      const nextP2Buffer = this.buffers.getPredatorBufferNext(this.p2BufferIndex);
+
+      const p2BindGroup = this.device.createBindGroup({
+        label: 'P2 Bind Group (dynamic)',
+        layout: this.p2Pipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentP2Buffer } },
+          { binding: 1, resource: { buffer: nextP2Buffer } },
+          { binding: 2, resource: { buffer: this.buffers.pDensity } },
+          { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 4, resource: { buffer: this.buffers.predatorParamsBuffer } },
+          { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
+        ],
+      });
+
+      const predatorWorkgroups = Math.ceil(this.buffers.maxPredators / 64);
+      pass.setBindGroup(0, p2BindGroup);
+      pass.dispatchWorkgroups(predatorWorkgroups);
+      pass.end();
+    }
+
+    // Swap predator buffer index
+    this.p2BufferIndex = 1 - this.p2BufferIndex;
+
+    // 10. Clear P2 density buffer (after predator movement)
+    {
+      const pass = encoder.beginComputePass({ label: 'Clear P2 Density Buffer' });
+      pass.setPipeline(this.clearDensityPipeline);
+
+      const clearWorkgroups = Math.ceil((this.buffers.gridWidth * this.buffers.gridHeight) / 256);
+      const p2DensityBindGroup = this.device.createBindGroup({
+        label: 'Clear P2 Density Bind Group',
+        layout: this.clearDensityPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.buffers.p2Density } },
+          { binding: 1, resource: { buffer: this.buffers.gridInfoBuffer } },
+        ],
+      });
+
+      pass.setBindGroup(0, p2DensityBindGroup);
+      pass.dispatchWorkgroups(clearWorkgroups);
+      pass.end();
+    }
+
+    // 11. Accumulate P2 density (after movement)
+    {
+      const pass = encoder.beginComputePass({ label: 'Accumulate P2 Density' });
+      pass.setPipeline(this.accumulateDensityPipeline);
+
+      const currentP2Buffer = this.buffers.getPredatorBufferCurrent(this.p2BufferIndex);
+      const p2DensityBindGroup = this.device.createBindGroup({
+        label: 'Accumulate P2 Density Bind Group',
+        layout: this.accumulateDensityPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentP2Buffer } },
+          { binding: 1, resource: { buffer: this.buffers.p2Density } },
+          { binding: 2, resource: { buffer: this.buffers.gridInfoBuffer } },
+        ],
+      });
+
+      const predatorWorkgroups = Math.ceil(this.buffers.maxPredators / 64);
+      pass.setBindGroup(0, p2DensityBindGroup);
+      pass.dispatchWorkgroups(predatorWorkgroups);
+      pass.end();
+    }
+
+    // 12. Update Particles (follow ∇B + avoid predators)
     {
       const pass = encoder.beginComputePass({ label: 'Update P Particles' });
       pass.setPipeline(this.pPipeline);
@@ -559,6 +788,8 @@ export class SimulationEngine {
           { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
           { binding: 4, resource: { buffer: this.buffers.particleParamsBuffer } },
           { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
+          { binding: 6, resource: { buffer: this.buffers.p2Density } },
+          { binding: 7, resource: { buffer: this.buffers.predatorParamsBuffer } },
         ],
       });
 
@@ -616,5 +847,12 @@ export class SimulationEngine {
    */
   getCurrentPBuffer() {
     return this.pBufferIndex === 0 ? this.buffers.particleBufferA : this.buffers.particleBufferB;
+  }
+
+  /**
+   * Get current Predator buffer for rendering
+   */
+  getCurrentP2Buffer() {
+    return this.p2BufferIndex === 0 ? this.buffers.predatorBufferA : this.buffers.predatorBufferB;
   }
 }
