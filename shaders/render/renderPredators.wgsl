@@ -44,16 +44,19 @@ struct VSOut {
 @group(0) @binding(1) var<uniform> gridInfo: GridInfo;
 @group(0) @binding(2) var<uniform> predatorParams: PredatorParams;
 
+fn pcg_hash(v: u32) -> u32 {
+  var state = v * 747796405u + 2891336453u;
+  var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+  return (word >> 22u) ^ word;
+}
+
+fn rand01(seed: u32) -> f32 {
+  return f32(pcg_hash(seed)) / 4294967296.0;
+}
+
 @vertex
 fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) instanceIndex: u32) -> VSOut {
   var out: VSOut;
-
-  let count = u32(predatorParams.p2Count);
-  if (instanceIndex >= count) {
-    out.position = vec4<f32>(2.0, 2.0, 0.0, 1.0);
-    out.color = vec3<f32>(1.0, 1.0, 1.0);
-    return out;
-  }
 
   let p = predators[instanceIndex];
   if (p.state == 0u) {
@@ -62,9 +65,10 @@ fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) ins
     return out;
   }
 
-  let energyNorm = clamp(p.energy * 0.35 + 0.3, 0.3, 1.0);
-  let baseColor = vec3<f32>(1.0, 0.35, 0.2);
-  out.color = baseColor * energyNorm;
+  // Brighter, higher-contrast coloring (avoid being lost against bright fields)
+  let energyNorm = clamp(p.energy * 0.15 + 0.85, 0.85, 1.0);
+  let baseColor = vec3<f32>(1.0, 0.55, 0.25);
+  out.color = min(baseColor * energyNorm * 1.3, vec3<f32>(1.0, 1.0, 1.0));
 
   let sizePx = predatorParams.p2PointSize;
   let sx = sizePx / f32(gridInfo.width) * 2.0;
@@ -81,7 +85,15 @@ fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) ins
 
   let gx = (p.pos.x / f32(gridInfo.width - 1u)) * 2.0 - 1.0;
   let gy = (p.pos.y / f32(gridInfo.height - 1u)) * 2.0 - 1.0;
-  let basePos = vec2<f32>(gx, -gy);
+  var basePos = vec2<f32>(gx, -gy);
+
+  // Small deterministic jitter to reduce overdraw stacking (visualization only)
+  let jitterPx = 1.0;
+  let r0 = rand01(instanceIndex * 1664525u + 1013904223u);
+  let r1 = rand01(instanceIndex * 22695477u + 1u);
+  let jx = (r0 * 2.0 - 1.0) * (jitterPx / f32(gridInfo.width)) * 2.0;
+  let jy = (r1 * 2.0 - 1.0) * (jitterPx / f32(gridInfo.height)) * 2.0;
+  basePos = basePos + vec2<f32>(jx, jy);
 
   out.position = vec4<f32>(basePos + offsets[vertexIndex], 0.0, 1.0);
   return out;

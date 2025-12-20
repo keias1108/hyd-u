@@ -42,6 +42,7 @@ export class SimulationEngine {
     this.p2Pipeline = null;
     this.clearDensityPipeline = null;
     this.accumulateDensityPipeline = null;
+    this.clearPredatorsPipeline = null;
 
     // Bind groups
     this.rBindGroup = null;
@@ -70,6 +71,7 @@ export class SimulationEngine {
     const updateP2Code = await this.loadShader('shaders/compute/updateP2.wgsl');
     const clearDensityCode = await this.loadShader('shaders/compute/clearDensity.wgsl');
     const accumulateDensityCode = await this.loadShader('shaders/compute/accumulateDensity.wgsl');
+    const clearParticlesCode = await this.loadShader('shaders/compute/clearParticlesU32.wgsl');
 
     // Create pipelines
     await this.createRPipeline(updateRCode);
@@ -82,6 +84,7 @@ export class SimulationEngine {
     await this.createP2Pipeline(updateP2Code);
     await this.createClearDensityPipeline(clearDensityCode);
     await this.createAccumulateDensityPipeline(accumulateDensityCode);
+    await this.createClearPredatorsPipeline(clearParticlesCode);
 
     console.log('Simulation engine initialized with H field');
   }
@@ -478,6 +481,37 @@ export class SimulationEngine {
     });
   }
 
+  /**
+   * Create predator buffer clear pipeline (u32 zeroing)
+   */
+  async createClearPredatorsPipeline(code) {
+    const shaderModule = this.device.createShaderModule({
+      label: 'Predator Buffer Clear Shader',
+      code: code,
+    });
+
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Predator Buffer Clear Bind Group Layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, // data (u32)
+      ],
+    });
+
+    const pipelineLayout = this.device.createPipelineLayout({
+      label: 'Predator Buffer Clear Pipeline Layout',
+      bindGroupLayouts: [bindGroupLayout],
+    });
+
+    this.clearPredatorsPipeline = this.device.createComputePipeline({
+      label: 'Predator Buffer Clear Pipeline',
+      layout: pipelineLayout,
+      compute: {
+        module: shaderModule,
+        entryPoint: 'main',
+      },
+    });
+  }
+
 
   /**
    * Execute one simulation step
@@ -698,7 +732,27 @@ export class SimulationEngine {
       pass.end();
     }
 
-    // 9. Update Predators (follow ∇P)
+    // 9. Clear next predator buffer (avoid spawn overwrite race)
+    {
+      const pass = encoder.beginComputePass({ label: 'Clear Next P2 Buffer' });
+      pass.setPipeline(this.clearPredatorsPipeline);
+
+      const nextP2Buffer = this.buffers.getPredatorBufferNext(this.p2BufferIndex);
+      const clearBindGroup = this.device.createBindGroup({
+        label: 'Clear Next P2 Bind Group',
+        layout: this.clearPredatorsPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: nextP2Buffer } },
+        ],
+      });
+
+      const clearWorkgroups = Math.ceil((this.buffers.maxPredators * 8) / 256);
+      pass.setBindGroup(0, clearBindGroup);
+      pass.dispatchWorkgroups(clearWorkgroups);
+      pass.end();
+    }
+
+    // 10. Update Predators (follow ∇P)
     {
       const pass = encoder.beginComputePass({ label: 'Update P2 Predators' });
       pass.setPipeline(this.p2Pipeline);
@@ -728,7 +782,7 @@ export class SimulationEngine {
     // Swap predator buffer index
     this.p2BufferIndex = 1 - this.p2BufferIndex;
 
-    // 10. Clear P2 density buffer (after predator movement)
+    // 11. Clear P2 density buffer (after predator movement)
     {
       const pass = encoder.beginComputePass({ label: 'Clear P2 Density Buffer' });
       pass.setPipeline(this.clearDensityPipeline);
@@ -748,7 +802,7 @@ export class SimulationEngine {
       pass.end();
     }
 
-    // 11. Accumulate P2 density (after movement)
+    // 12. Accumulate P2 density (after movement)
     {
       const pass = encoder.beginComputePass({ label: 'Accumulate P2 Density' });
       pass.setPipeline(this.accumulateDensityPipeline);
@@ -770,7 +824,7 @@ export class SimulationEngine {
       pass.end();
     }
 
-    // 12. Update Particles (follow ∇B + avoid predators)
+    // 13. Update Particles (follow ∇B + avoid predators)
     {
       const pass = encoder.beginComputePass({ label: 'Update P Particles' });
       pass.setPipeline(this.pPipeline);

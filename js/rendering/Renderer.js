@@ -118,12 +118,12 @@ export class Renderer {
             blend: {
               color: {
                 srcFactor: 'src-alpha',
-                dstFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
                 operation: 'add',
               },
               alpha: {
                 srcFactor: 'one',
-                dstFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
                 operation: 'add',
               },
             },
@@ -175,12 +175,12 @@ export class Renderer {
             blend: {
               color: {
                 srcFactor: 'src-alpha',
-                dstFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
                 operation: 'add',
               },
               alpha: {
                 srcFactor: 'one',
-                dstFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
                 operation: 'add',
               },
             },
@@ -207,7 +207,8 @@ export class Renderer {
    * Load shader code from file
    */
   async loadShader(path) {
-    const response = await fetch(path);
+    const cacheBustedPath = `${path}?v=${Date.now()}`;
+    const response = await fetch(cacheBustedPath, { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`Failed to load shader: ${path}`);
     }
@@ -306,14 +307,14 @@ export class Renderer {
     // Draw particles on top
     renderPass.setPipeline(this.particlePipeline);
     renderPass.setBindGroup(0, this.particleBindGroup);
-    const particleCount = Math.floor(this.parameters.get('pCount'));
-    renderPass.draw(6, particleCount, 0, 0); // 6 verts per quad, instanced
+    // Draw full capacity so reproduction beyond initial pCount is visible and matches HUD totals
+    renderPass.draw(6, this.buffers.maxParticles, 0, 0); // 6 verts per quad, instanced
 
     // Draw predators on top
     renderPass.setPipeline(this.predatorPipeline);
     renderPass.setBindGroup(0, this.predatorBindGroup);
-    const predatorCount = Math.floor(this.parameters.get('p2Count'));
-    renderPass.draw(6, predatorCount, 0, 0);
+    // Draw full capacity so reproduction beyond initial p2Count is visible and matches HUD/Chart totals
+    renderPass.draw(6, this.buffers.maxPredators, 0, 0);
     renderPass.end();
 
     // Submit commands

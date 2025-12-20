@@ -285,8 +285,8 @@ export class SimulationBuffers {
 
       if (i < activeCount) {
         // Active particle
-        data[base]     = Math.random() * this.gridWidth;   // pos.x
-        data[base + 1] = Math.random() * this.gridHeight;  // pos.y
+        data[base]     = Math.random() * (this.gridWidth - 1);   // pos.x
+        data[base + 1] = Math.random() * (this.gridHeight - 1);  // pos.y
         data[base + 2] = 0.0;                              // vel.x
         data[base + 3] = 0.0;                              // vel.y
         data[base + 4] = 1.0;                              // energy (initial = 1.0)
@@ -328,8 +328,8 @@ export class SimulationBuffers {
       const base = i * 8;
 
       if (i < activeCount) {
-        data[base] = Math.random() * this.gridWidth;
-        data[base + 1] = Math.random() * this.gridHeight;
+        data[base] = Math.random() * (this.gridWidth - 1);
+        data[base + 1] = Math.random() * (this.gridHeight - 1);
         data[base + 2] = 0.0;
         data[base + 3] = 0.0;
         data[base + 4] = 1.0;

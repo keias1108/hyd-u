@@ -32,7 +32,7 @@ class HydrothermalVentSimulation {
     // Stats tracking
     this.lastStatsUpdate = 0;
     this.statsUpdateInterval = 100; // Update stats every 100ms
-    this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0, mTotal: 0, bTotal: 0, pTotal: 0, p2Total: 0 };
+    this.currentStats = { rTotal: 0, oAvg: 0.8, hAvg: 0.0, mTotal: 0, bTotal: 0, pTotal: 0, p2Total: 0, pInvalid: 0, p2Invalid: 0 };
 
     // Virtual simulation time (for sub-stepping)
     this.virtualTime = 0;
@@ -970,14 +970,99 @@ class HydrothermalVentSimulation {
       const hAvg = hSum / gridSize;
 
       // Count alive particles from GPU buffer
-      const pTotal = await this.countAliveParticles();
-      const p2Total = await this.countAlivePredators();
+      const pStats = await this.analyzeAliveFromParticleBuffer(this.engine.getCurrentPBuffer(), this.buffers.maxParticles);
+      const p2Stats = await this.analyzeAliveFromParticleBuffer(this.engine.getCurrentP2Buffer(), this.buffers.maxPredators);
 
-      return { rTotal, oAvg, hAvg, mTotal, bTotal, pTotal, p2Total };
+      if (pStats.invalidCount > 0) {
+        console.warn(`P invalid positions: ${pStats.invalidCount} (NaN: ${pStats.nanCount}, OOB: ${pStats.oobCount})`);
+      }
+      if (p2Stats.invalidCount > 0) {
+        console.warn(`P2 invalid positions: ${p2Stats.invalidCount} (NaN: ${p2Stats.nanCount}, OOB: ${p2Stats.oobCount})`);
+      }
+
+      return {
+        rTotal,
+        oAvg,
+        hAvg,
+        mTotal,
+        bTotal,
+        pTotal: pStats.aliveCount,
+        p2Total: p2Stats.aliveCount,
+        pInvalid: pStats.invalidCount,
+        p2Invalid: p2Stats.invalidCount,
+      };
     } catch (error) {
       console.error('Failed to compute field stats:', error);
       return this.currentStats; // Return last valid stats
     }
+  }
+
+  /**
+   * Analyze alive entities and invalid positions from a particle-structured buffer.
+   * Particle stride: 32 bytes = 8 * u32 words.
+   * pos is at f32[base+0..1], state is at u32[base+6].
+   */
+  async analyzeAliveFromParticleBuffer(gpuBuffer, capacity) {
+    const size = gpuBuffer.size;
+    const gridW = this.parameters.get('gridWidth');
+    const gridH = this.parameters.get('gridHeight');
+    const maxXExclusive = gridW;
+    const maxYExclusive = gridH;
+
+    const readBuffer = this.gpuContext.device.createBuffer({
+      size: size,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+
+    const encoder = this.gpuContext.device.createCommandEncoder();
+    encoder.copyBufferToBuffer(gpuBuffer, 0, readBuffer, 0, size);
+    this.gpuContext.device.queue.submit([encoder.finish()]);
+
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+
+    const f32View = new Float32Array(arrayBuffer);
+    const u32View = new Uint32Array(arrayBuffer);
+
+    let aliveCount = 0;
+    let invalidCount = 0;
+    let nanCount = 0;
+    let oobCount = 0;
+
+    let minX = Number.POSITIVE_INFINITY;
+    let maxXSeen = Number.NEGATIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxYSeen = Number.NEGATIVE_INFINITY;
+
+    for (let i = 0; i < capacity; i++) {
+      const base = i * 8;
+      const state = u32View[base + 6];
+      if (state === 0) continue;
+
+      aliveCount++;
+
+      const x = f32View[base];
+      const y = f32View[base + 1];
+
+      const nan = Number.isNaN(x) || Number.isNaN(y);
+      const oob = !nan && (x < 0 || x >= maxXExclusive || y < 0 || y >= maxYExclusive);
+      if (nan || oob) {
+        invalidCount++;
+        if (nan) nanCount++;
+        if (oob) oobCount++;
+        continue;
+      }
+
+      if (x < minX) minX = x;
+      if (x > maxXSeen) maxXSeen = x;
+      if (y < minY) minY = y;
+      if (y > maxYSeen) maxYSeen = y;
+    }
+
+    readBuffer.unmap();
+    readBuffer.destroy();
+
+    return { aliveCount, invalidCount, nanCount, oobCount, minX, maxXSeen, minY, maxYSeen };
   }
 
   /**
@@ -1088,6 +1173,8 @@ class HydrothermalVentSimulation {
     const bTotalEl = document.getElementById('b-total');
     const pTotalEl = document.getElementById('p-total');
     const p2TotalEl = document.getElementById('p2-total');
+    const pInvalidEl = document.getElementById('p-invalid');
+    const p2InvalidEl = document.getElementById('p2-invalid');
 
     if (oAvgEl) {
       oAvgEl.textContent = this.currentStats.oAvg.toFixed(3);
@@ -1109,6 +1196,12 @@ class HydrothermalVentSimulation {
     }
     if (p2TotalEl) {
       p2TotalEl.textContent = this.currentStats.p2Total.toFixed(0);
+    }
+    if (pInvalidEl) {
+      pInvalidEl.textContent = `${this.currentStats.pInvalid}`;
+    }
+    if (p2InvalidEl) {
+      p2InvalidEl.textContent = `${this.currentStats.p2Invalid}`;
     }
   }
 

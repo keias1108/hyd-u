@@ -73,6 +73,10 @@ struct Particle {
 @group(0) @binding(4) var<uniform> predatorParams: PredatorParams;
 @group(0) @binding(5) var<uniform> simParams: SimParams;
 
+fn is_nan(x: f32) -> bool {
+  return x != x;
+}
+
 fn pcg_hash(v: u32) -> u32 {
   var state = v * 747796405u + 2891336453u;
   var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
@@ -94,15 +98,23 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   var p = predatorsIn[idx];
 
   if (p.state == 0u) {
-    predatorsOut[idx] = p;
     return;
   }
 
   let gridW = gridInfo.width;
   let gridH = gridInfo.height;
+  let maxX = f32(gridW - 1u);
+  let maxY = f32(gridH - 1u);
 
-  var x = clamp(p.pos.x, 0.0, f32(gridW - 1u));
-  var y = clamp(p.pos.y, 0.0, f32(gridH - 1u));
+  // Defensive: kill predators with invalid positions (prevents "alive but invisible" states)
+  if (is_nan(p.pos.x) || is_nan(p.pos.y)) {
+    p.state = 0u;
+    predatorsOut[idx] = p;
+    return;
+  }
+
+  var x = clamp(p.pos.x, 0.0, maxX);
+  var y = clamp(p.pos.y, 0.0, maxY);
 
   let xi = u32(x);
   let yi = u32(y);
@@ -168,8 +180,6 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   }
 
   var newPos = p.pos + p.vel * dt;
-  let maxX = f32(gridW - 1u);
-  let maxY = f32(gridH - 1u);
 
   var bounced = false;
   if (newPos.x < 0.0) {

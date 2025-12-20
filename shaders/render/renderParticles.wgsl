@@ -40,16 +40,19 @@ struct VSOut {
 @group(0) @binding(1) var<uniform> gridInfo: GridInfo;
 @group(0) @binding(2) var<uniform> particleParams: ParticleParams;
 
+fn pcg_hash(v: u32) -> u32 {
+  var state = v * 747796405u + 2891336453u;
+  var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+  return (word >> 22u) ^ word;
+}
+
+fn rand01(seed: u32) -> f32 {
+  return f32(pcg_hash(seed)) / 4294967296.0;
+}
+
 @vertex
 fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) instanceIndex: u32) -> VSOut {
   var out: VSOut;
-
-  let count = u32(particleParams.pCount);
-  if (instanceIndex >= count) {
-    out.position = vec4<f32>(2.0, 2.0, 0.0, 1.0); // off-screen
-    out.color = vec3<f32>(1.0, 1.0, 1.0);
-    return out;
-  }
 
   let p = particles[instanceIndex];
 
@@ -60,12 +63,10 @@ fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) ins
     return out;
   }
 
-  // Energy-based brightness: map energy (0-2) to brightness (0.3-1.0)
-  let energyNorm = clamp(p.energy * 0.35 + 0.3, 0.3, 1.0);
-
-  // Base color: cyan-blue (represents biological entity)
-  let baseColor = vec3<f32>(0.3, 0.7, 1.0);
-  out.color = baseColor * energyNorm;
+  // Brighter, higher-contrast coloring (avoid "invisible but alive" perception under alpha blending)
+  let energyNorm = clamp(p.energy * 0.15 + 0.85, 0.85, 1.0);
+  let baseColor = vec3<f32>(0.6, 0.9, 1.0);
+  out.color = min(baseColor * energyNorm * 1.4, vec3<f32>(1.0, 1.0, 1.0));
 
   // Small quad offsets (two triangles = 6 vertices)
   let sizePx = particleParams.pPointSize;
@@ -84,7 +85,15 @@ fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) ins
   // Convert grid position to clip space (-1..1)
   let gx = (p.pos.x / f32(gridInfo.width - 1u)) * 2.0 - 1.0;
   let gy = (p.pos.y / f32(gridInfo.height - 1u)) * 2.0 - 1.0;
-  let basePos = vec2<f32>(gx, -gy); // flip Y for screen
+  var basePos = vec2<f32>(gx, -gy); // flip Y for screen
+
+  // Small deterministic jitter to reduce overdraw stacking (visualization only)
+  let jitterPx = 1.0;
+  let r0 = rand01(instanceIndex * 1664525u + 1013904223u);
+  let r1 = rand01(instanceIndex * 22695477u + 1u);
+  let jx = (r0 * 2.0 - 1.0) * (jitterPx / f32(gridInfo.width)) * 2.0;
+  let jy = (r1 * 2.0 - 1.0) * (jitterPx / f32(gridInfo.height)) * 2.0;
+  basePos = basePos + vec2<f32>(jx, jy);
 
   out.position = vec4<f32>(basePos + offsets[vertexIndex], 0.0, 1.0);
   return out;

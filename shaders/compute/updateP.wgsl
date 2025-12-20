@@ -94,6 +94,10 @@ struct Particle {
 @group(0) @binding(6) var<storage, read_write> p2Density: array<atomic<u32>>;
 @group(0) @binding(7) var<uniform> predatorParams: PredatorParams;
 
+fn is_nan(x: f32) -> bool {
+  return x != x;
+}
+
 fn pcg_hash(v: u32) -> u32 {
   var state = v * 747796405u + 2891336453u;
   var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
@@ -122,10 +126,19 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
 
   let gridW = gridInfo.width;
   let gridH = gridInfo.height;
+  let maxX = f32(gridW - 1u);
+  let maxY = f32(gridH - 1u);
+
+  // Defensive: kill particles with invalid positions (prevents "alive but invisible" states)
+  if (is_nan(p.pos.x) || is_nan(p.pos.y)) {
+    p.state = 0u;
+    particlesOut[idx] = p;
+    return;
+  }
 
   // Clamp position to grid
-  var x = clamp(p.pos.x, 0.0, f32(gridW - 1u));
-  var y = clamp(p.pos.y, 0.0, f32(gridH - 1u));
+  var x = clamp(p.pos.x, 0.0, maxX);
+  var y = clamp(p.pos.y, 0.0, maxY);
 
   let xi = u32(x);
   let yi = u32(y);
@@ -206,8 +219,6 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
 
   // Position update + reflection without "sticking" to the wall
   var newPos = p.pos + p.vel * dt;
-  let maxX = f32(gridW - 1u);
-  let maxY = f32(gridH - 1u);
 
   var bounced = false;
   if (newPos.x < 0.0) {
