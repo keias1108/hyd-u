@@ -101,14 +101,44 @@ fn viridis(t: f32) -> vec4<f32> {
   return vec4<f32>(color, 1.0);
 }
 
+// Ocean colormap: dark blue/black -> cyan -> white (hydrothermal vent theme)
+fn ocean(t: f32) -> vec4<f32> {
+  // Color stops for deep ocean to bright emission
+  let c0 = vec3<f32>(0.0, 0.0, 0.05);        // Very dark blue (deep ocean)
+  let c1 = vec3<f32>(0.0, 0.05, 0.15);       // Dark blue
+  let c2 = vec3<f32>(0.0, 0.2, 0.4);         // Ocean blue
+  let c3 = vec3<f32>(0.0, 0.5, 0.7);         // Cyan
+  let c4 = vec3<f32>(0.3, 0.8, 1.0);         // Bright cyan
+  let c5 = vec3<f32>(0.8, 1.0, 1.0);         // Very bright cyan/white
+
+  var color: vec3<f32>;
+
+  // Piecewise linear interpolation with more contrast in low range
+  if (t < 0.1) {
+    color = mix(c0, c1, t / 0.1);
+  } else if (t < 0.25) {
+    color = mix(c1, c2, (t - 0.1) / 0.15);
+  } else if (t < 0.5) {
+    color = mix(c2, c3, (t - 0.25) / 0.25);
+  } else if (t < 0.75) {
+    color = mix(c3, c4, (t - 0.5) / 0.25);
+  } else {
+    color = mix(c4, c5, (t - 0.75) / 0.25);
+  }
+
+  return vec4<f32>(color, 1.0);
+}
+
 // Apply color scheme based on selection
 fn applyColorScheme(value: f32, scheme: u32) -> vec4<f32> {
   if (scheme == 0u) {
     return grayscale(value);
   } else if (scheme == 1u) {
     return heatmap(value);
-  } else {
+  } else if (scheme == 2u) {
     return viridis(value);
+  } else {
+    return ocean(value);
   }
 }
 

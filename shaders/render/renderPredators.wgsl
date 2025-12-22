@@ -65,9 +65,9 @@ fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) ins
     return out;
   }
 
-  // Brighter, higher-contrast coloring (avoid being lost against bright fields)
+  // Bright red-magenta coloring for predators (distinct from prey)
   let energyNorm = clamp(p.energy * 0.15 + 0.85, 0.85, 1.0);
-  let baseColor = vec3<f32>(1.0, 0.55, 0.25);
+  let baseColor = vec3<f32>(1.0, 0.15, 0.3);  // Bright red-magenta
   out.color = min(baseColor * energyNorm * 1.3, vec3<f32>(1.0, 1.0, 1.0));
 
   let sizePx = predatorParams.p2PointSize;

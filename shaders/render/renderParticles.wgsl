@@ -63,10 +63,10 @@ fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) ins
     return out;
   }
 
-  // Brighter, higher-contrast coloring (avoid "invisible but alive" perception under alpha blending)
+  // Bright cyan-green coloring for prey particles (distinct from predators)
   let energyNorm = clamp(p.energy * 0.15 + 0.85, 0.85, 1.0);
-  let baseColor = vec3<f32>(0.6, 0.9, 1.0);
-  out.color = min(baseColor * energyNorm * 1.4, vec3<f32>(1.0, 1.0, 1.0));
+  let baseColor = vec3<f32>(0.2, 1.0, 0.5);  // Bright cyan-green
+  out.color = min(baseColor * energyNorm * 1.3, vec3<f32>(1.0, 1.0, 1.0));
 
   // Small quad offsets (two triangles = 6 vertices)
   let sizePx = particleParams.pPointSize;

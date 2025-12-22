@@ -570,7 +570,7 @@ export const PARAMETER_DEFS = [
     "colorScheme",
     0,
     0,
-    2,
+    3,
     1,
     "Visualization",
     "Color scheme"
@@ -592,7 +592,7 @@ export const VIZ_MODE_LABELS = [
 /**
  * Color scheme labels
  */
-export const COLOR_SCHEME_LABELS = ["Grayscale", "Heatmap", "Viridis"];
+export const COLOR_SCHEME_LABELS = ["Grayscale", "Heatmap", "Viridis", "Ocean"];
 
 /**
  * Main parameter manager
