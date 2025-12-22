@@ -9,13 +9,9 @@ export class SimulationEngine {
     this.buffers = buffers;
     this.parameters = parameters;
 
-    // Ping-pong buffer index for R field (0 = A current, 1 = B current)
+    // Ping-pong buffer indices (0 = A current, 1 = B current)
     this.rBufferIndex = 0;
-
-    // Ping-pong buffer index for R field (0 = A current, 1 = B current)
-    this.rBufferIndex = 0;
-
-    // Ping-pong buffer index for O field (0 = A current, 1 = B current)
+    // Ping-pong buffer index for O field
     this.oBufferIndex = 0;
 
     // Ping-pong buffer index for M field
@@ -880,13 +876,6 @@ export class SimulationEngine {
    */
   getCurrentMBuffer() {
     return this.mBufferIndex === 0 ? this.buffers.mFieldA : this.buffers.mFieldB;
-  }
-
-  /**
-   * Get current P buffer for stats
-   */
-  getCurrentPBuffer() {
-    return this.pBufferIndex === 0 ? this.buffers.particleBufferA : this.buffers.particleBufferB;
   }
 
   /**

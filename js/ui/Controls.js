@@ -4,6 +4,7 @@
  */
 
 import { VIZ_MODE_LABELS, COLOR_SCHEME_LABELS } from '../simulation/parameters.js';
+import { STORAGE_KEYS } from '../core/constants.js';
 
 export class Controls {
   constructor(parameters, onParameterChange) {
@@ -34,7 +35,7 @@ export class Controls {
     const panel = document.createElement('div');
 
     // Load saved state from localStorage
-    const savedState = localStorage.getItem(`panel-state-${categoryName}`);
+    const savedState = localStorage.getItem(STORAGE_KEYS.PANEL_STATE_PREFIX + categoryName);
     const isExpanded = savedState === null ? true : savedState === 'expanded';
 
     panel.className = `parameter-panel ${isExpanded ? 'expanded' : 'collapsed'}`;
@@ -57,10 +58,10 @@ export class Controls {
       // 토글 아이콘 회전
       if (panel.classList.contains('collapsed')) {
         toggle.textContent = '▶';
-        localStorage.setItem(`panel-state-${categoryName}`, 'collapsed');
+        localStorage.setItem(STORAGE_KEYS.PANEL_STATE_PREFIX + categoryName, 'collapsed');
       } else {
         toggle.textContent = '▼';
-        localStorage.setItem(`panel-state-${categoryName}`, 'expanded');
+        localStorage.setItem(STORAGE_KEYS.PANEL_STATE_PREFIX + categoryName, 'expanded');
       }
     });
 
