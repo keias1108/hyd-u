@@ -1,10 +1,17 @@
 /**
- * UI Controls
- * Creates and manages parameter control UI
+ * @fileoverview UI Controls
+ *
+ * 파라미터 조정 UI 패널 생성 및 관리.
+ *
+ * @module ui/Controls
  */
 
 import { VIZ_MODE_LABELS, COLOR_SCHEME_LABELS } from '../simulation/parameters.js';
-import { STORAGE_KEYS } from '../core/constants.js';
+
+// =============================================================================
+// 상수 (이 파일에서만 사용)
+// =============================================================================
+const PANEL_STATE_PREFIX = 'panel-state-';
 
 export class Controls {
   constructor(parameters, onParameterChange) {
@@ -35,7 +42,7 @@ export class Controls {
     const panel = document.createElement('div');
 
     // Load saved state from localStorage
-    const savedState = localStorage.getItem(STORAGE_KEYS.PANEL_STATE_PREFIX + categoryName);
+    const savedState = localStorage.getItem(PANEL_STATE_PREFIX + categoryName);
     const isExpanded = savedState === null ? true : savedState === 'expanded';
 
     panel.className = `parameter-panel ${isExpanded ? 'expanded' : 'collapsed'}`;
@@ -58,10 +65,10 @@ export class Controls {
       // 토글 아이콘 회전
       if (panel.classList.contains('collapsed')) {
         toggle.textContent = '▶';
-        localStorage.setItem(STORAGE_KEYS.PANEL_STATE_PREFIX + categoryName, 'collapsed');
+        localStorage.setItem(PANEL_STATE_PREFIX + categoryName, 'collapsed');
       } else {
         toggle.textContent = '▼';
-        localStorage.setItem(STORAGE_KEYS.PANEL_STATE_PREFIX + categoryName, 'expanded');
+        localStorage.setItem(PANEL_STATE_PREFIX + categoryName, 'expanded');
       }
     });
 

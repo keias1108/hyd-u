@@ -1,14 +1,25 @@
 /**
- * Chart Manager
- * Handles Chart.js initialization and updates for statistics visualization
+ * @fileoverview Chart Manager
+ *
+ * Chart.js 통계 시각화 및 모달 관리.
+ *
+ * @module managers/ChartManager
  */
 
-import {
-  CHART_COLORS,
-  MAX_CHART_DATA_POINTS,
-  CHART_MODAL_MIN_WIDTH,
-  CHART_MODAL_MIN_HEIGHT,
-} from '../core/constants.js';
+// =============================================================================
+// 상수 (이 파일에서만 사용)
+// =============================================================================
+const MAX_CHART_DATA_POINTS = 500;
+const CHART_MODAL_MIN_WIDTH = 400;
+const CHART_MODAL_MIN_HEIGHT = 300;
+const CHART_COLORS = {
+  O_AVG: { border: 'rgb(75, 192, 192)', bg: 'rgba(75, 192, 192, 0.1)' },
+  R_TOTAL: { border: 'rgb(255, 99, 132)', bg: 'rgba(255, 99, 132, 0.1)' },
+  H_AVG: { border: 'rgb(255, 205, 86)', bg: 'rgba(255, 205, 86, 0.1)' },
+  B_TOTAL: { border: 'rgb(54, 162, 235)', bg: 'rgba(54, 162, 235, 0.1)' },
+  P_TOTAL: { border: 'rgb(153, 102, 255)', bg: 'rgba(153, 102, 255, 0.1)' },
+  P2_TOTAL: { border: 'rgb(255, 138, 101)', bg: 'rgba(255, 138, 101, 0.12)' },
+};
 
 export class ChartManager {
   constructor() {

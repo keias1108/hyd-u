@@ -1,16 +1,27 @@
 /**
- * Batch Runner
- * Handles batch simulation runs with progress tracking and chart visualization
+ * @fileoverview Batch Runner
+ *
+ * 배치 시뮬레이션 실행 및 진행상황 추적.
+ *
+ * @module managers/BatchRunner
  */
 
-import {
-  CHART_COLORS,
-  DEFAULT_BATCH_STEPS,
-  DEFAULT_BATCH_SAMPLE_EVERY,
-  BATCH_CHUNK_SIZE,
-  BATCH_MODAL_MIN_WIDTH,
-  BATCH_MODAL_MIN_HEIGHT,
-} from '../core/constants.js';
+// =============================================================================
+// 상수 (이 파일에서만 사용)
+// =============================================================================
+const DEFAULT_BATCH_STEPS = 200000;
+const DEFAULT_BATCH_SAMPLE_EVERY = 1000;
+const BATCH_CHUNK_SIZE = 512;
+const BATCH_MODAL_MIN_WIDTH = 520;
+const BATCH_MODAL_MIN_HEIGHT = 420;
+const CHART_COLORS = {
+  O_AVG: { border: 'rgb(75, 192, 192)', bg: 'rgba(75, 192, 192, 0.1)' },
+  R_TOTAL: { border: 'rgb(255, 99, 132)', bg: 'rgba(255, 99, 132, 0.1)' },
+  H_AVG: { border: 'rgb(255, 205, 86)', bg: 'rgba(255, 205, 86, 0.1)' },
+  B_TOTAL: { border: 'rgb(54, 162, 235)', bg: 'rgba(54, 162, 235, 0.1)' },
+  P_TOTAL: { border: 'rgb(153, 102, 255)', bg: 'rgba(153, 102, 255, 0.1)' },
+  P2_TOTAL: { border: 'rgb(255, 138, 101)', bg: 'rgba(255, 138, 101, 0.12)' },
+};
 
 export class BatchRunner {
   /**

@@ -35,12 +35,17 @@ import { ChartManager } from './managers/ChartManager.js';
 import { EntityInspector } from './managers/EntityInspector.js';
 import { BatchRunner } from './managers/BatchRunner.js';
 import { readGpuBuffer, analyzeParticleBuffer } from './utils/gpuUtils.js';
-import {
-  FPS_UPDATE_INTERVAL_MS,
-  STATS_UPDATE_INTERVAL_MS,
-  CHART_SAMPLE_INTERVAL,
-  DEFAULT_STATS,
-} from './core/constants.js';
+
+// =============================================================================
+// 상수 (이 파일에서만 사용)
+// =============================================================================
+const FPS_UPDATE_INTERVAL_MS = 500;
+const STATS_UPDATE_INTERVAL_MS = 100;
+const CHART_SAMPLE_INTERVAL = 10;
+const DEFAULT_STATS = {
+  rTotal: 0, oAvg: 0.8, hAvg: 0.0, mTotal: 0, bTotal: 0,
+  pTotal: 0, p2Total: 0, pInvalid: 0, p2Invalid: 0,
+};
 
 // =============================================================================
 // MAIN APPLICATION CLASS

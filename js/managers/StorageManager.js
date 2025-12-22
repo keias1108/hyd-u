@@ -1,9 +1,19 @@
 /**
- * Storage Manager
- * Handles localStorage operations and JSON import/export for parameters
+ * @fileoverview Storage Manager
+ *
+ * localStorage 및 JSON 파일 저장/불러오기 관리.
+ *
+ * @module managers/StorageManager
  */
 
-import { STORAGE_KEYS } from '../core/constants.js';
+// =============================================================================
+// 상수 (이 파일에서만 사용)
+// =============================================================================
+const STORAGE_KEYS = {
+  SIDEBAR_VISIBLE: 'sidebar-visible',
+  PARAMETERS: 'hydrothermal-params',
+  PANEL_STATE_PREFIX: 'panel-state-',
+};
 
 export class StorageManager {
   /**

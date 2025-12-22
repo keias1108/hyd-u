@@ -1,16 +1,21 @@
 /**
- * Entity Inspector
- * Handles entity selection, inspection, and modal display
+ * @fileoverview Entity Inspector
+ *
+ * 파티클 선택/검사 및 정보 모달 표시.
+ *
+ * @module managers/EntityInspector
  */
 
-import {
-  ENTITY_PICK_RADIUS_PX,
-  ENTITY_READ_INTERVAL_MS,
-  ENTITY_MODAL_MIN_WIDTH,
-  ENTITY_MODAL_MIN_HEIGHT,
-  MODAL_MARGIN_PX,
-} from '../core/constants.js';
 import { findNearestEntity, readParticleAt } from '../utils/gpuUtils.js';
+
+// =============================================================================
+// 상수 (이 파일에서만 사용)
+// =============================================================================
+const ENTITY_PICK_RADIUS_PX = 14;
+const ENTITY_READ_INTERVAL_MS = 120;
+const ENTITY_MODAL_MIN_WIDTH = 220;
+const ENTITY_MODAL_MIN_HEIGHT = 140;
+const MODAL_MARGIN_PX = 8;
 
 export class EntityInspector {
   /**
