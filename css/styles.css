@@ -742,3 +742,166 @@ canvas {
   background: linear-gradient(135deg, transparent 0%, transparent 50%, rgba(138, 180, 248, 0.3) 50%, rgba(138, 180, 248, 0.3) 100%);
   border-bottom-right-radius: 12px;
 }
+
+/* ============================================================================
+   Batch Run Modal
+   ============================================================================ */
+
+.batch-modal {
+  position: fixed;
+  background: rgba(15, 22, 33, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  min-width: 520px;
+  min-height: 420px;
+  width: 780px;
+  height: 720px;
+  top: 85px;
+  left: 420px;
+  display: flex;
+  flex-direction: column;
+}
+
+.batch-modal.hidden {
+  display: none;
+}
+
+.batch-modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  cursor: move;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(138, 180, 248, 0.05);
+  border-radius: 12px 12px 0 0;
+  user-select: none;
+}
+
+.batch-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.batch-modal-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.batch-modal-close:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+.batch-modal-body {
+  flex: 1;
+  padding: 14px 16px 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.batch-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: end;
+}
+
+.batch-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(232, 238, 242, 0.85);
+}
+
+.batch-input {
+  padding: 8px 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(27, 38, 54, 0.6);
+  color: #e8eef2;
+  font-size: 12px;
+}
+
+.batch-buttons {
+  grid-column: 1 / span 2;
+  display: flex;
+  gap: 8px;
+}
+
+.batch-buttons .btn {
+  flex: 1;
+}
+
+.batch-progress-row {
+  grid-column: 1 / span 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-progress {
+  flex: 1;
+  height: 10px;
+  background: rgba(50, 60, 80, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.batch-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(138, 180, 248, 0.85), rgba(183, 148, 246, 0.85));
+  transition: width 0.15s linear;
+}
+
+.batch-progress-text {
+  min-width: 180px;
+  font-size: 12px;
+  color: rgba(232, 238, 242, 0.75);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.batch-chart {
+  flex: 1;
+  background: rgba(10, 15, 22, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.batch-chart canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.batch-modal-resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 0%, transparent 50%, rgba(138, 180, 248, 0.3) 50%, rgba(138, 180, 248, 0.3) 100%);
+  border-bottom-right-radius: 12px;
+}

@@ -6,6 +6,7 @@
     <title>Hydrothermal Vent Simulation - WebGPU</title>
     <link rel="stylesheet" href="css/styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   </head>
   <body>
     <!-- 좌측 사이드바: 컨트롤 패널 -->
@@ -129,6 +130,43 @@
         <canvas id="floatingStatsChart"></canvas>
       </div>
       <div class="chart-modal-resize-handle"></div>
+    </div>
+
+    <!-- Batch Run Modal -->
+    <div id="batchModal" class="batch-modal hidden">
+      <div class="batch-modal-header">
+        <span class="batch-modal-title">Batch Run</span>
+        <button id="closeBatchModal" class="batch-modal-close">×</button>
+      </div>
+      <div class="batch-modal-body">
+        <div class="batch-controls">
+          <label class="batch-label">
+            Steps
+            <input id="batchSteps" type="number" min="1" step="1000" value="200000" class="batch-input" />
+          </label>
+          <label class="batch-label">
+            Sample Every (steps)
+            <input id="batchSampleEvery" type="number" min="1" step="10" value="1000" class="batch-input" />
+          </label>
+          <div class="batch-buttons">
+            <button id="batchRunBtn" class="btn btn-primary">Run</button>
+            <button id="batchStopBtn" class="btn btn-secondary" disabled>Stop</button>
+            <button id="batchResetZoomBtn" class="btn btn-secondary">Reset Zoom</button>
+          </div>
+          <div class="batch-progress-row">
+            <div class="batch-progress">
+              <div id="batchProgressBar" class="batch-progress-bar"></div>
+            </div>
+            <div class="batch-progress-text">
+              <span id="batchProgressText">Idle</span>
+            </div>
+          </div>
+        </div>
+        <div class="batch-chart">
+          <canvas id="batchChart"></canvas>
+        </div>
+      </div>
+      <div class="batch-modal-resize-handle"></div>
     </div>
 
     <script type="module" src="js/main.js"></script>

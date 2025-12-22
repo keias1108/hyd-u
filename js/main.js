@@ -63,6 +63,16 @@ class HydrothermalVentSimulation {
 
     this.entityModalDrag = { isDragging: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
     this.entityModalResize = { isResizing: false, startX: 0, startY: 0, startWidth: 0, startHeight: 0 };
+
+    // Batch run
+    this.batch = {
+      chart: null,
+      isRunning: false,
+      cancelRequested: false,
+      lastResult: null,
+      modalDrag: { isDragging: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 },
+      modalResize: { isResizing: false, startX: 0, startY: 0, startWidth: 0, startHeight: 0 },
+    };
   }
 
   /**
@@ -168,6 +178,9 @@ class HydrothermalVentSimulation {
     // Setup chart panel
     this.setupChartPanel();
 
+    // Setup batch run panel
+    this.setupBatchRunPanel();
+
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       // Alt+S: Save parameters to JSON
@@ -199,6 +212,319 @@ class HydrothermalVentSimulation {
 
     // Entity selection on canvas (works even when paused)
     this.setupEntitySelection();
+  }
+
+  setupBatchRunPanel() {
+    const controlsContainer = document.getElementById('controls');
+    if (!controlsContainer) return;
+
+    const batchSection = document.createElement('div');
+    batchSection.className = 'parameter-panel collapsed';
+
+    const header = document.createElement('h3');
+    const toggle = document.createElement('span');
+    toggle.className = 'toggle';
+    toggle.textContent = '▶';
+    header.appendChild(toggle);
+    header.appendChild(document.createTextNode('Batch Run'));
+
+    header.addEventListener('click', () => {
+      this.openBatchModal();
+    });
+
+    batchSection.appendChild(header);
+    controlsContainer.appendChild(batchSection);
+
+    this.setupBatchModal();
+  }
+
+  setupBatchModal() {
+    const modal = document.getElementById('batchModal');
+    if (!modal) return;
+    const header = modal.querySelector('.batch-modal-header');
+    const closeBtn = document.getElementById('closeBatchModal');
+    const resizeHandle = modal.querySelector('.batch-modal-resize-handle');
+    const runBtn = document.getElementById('batchRunBtn');
+    const stopBtn = document.getElementById('batchStopBtn');
+    const resetZoomBtn = document.getElementById('batchResetZoomBtn');
+
+    closeBtn?.addEventListener('click', () => this.closeBatchModal());
+    runBtn?.addEventListener('click', () => this.runBatch());
+    stopBtn?.addEventListener('click', () => this.stopBatch());
+    resetZoomBtn?.addEventListener('click', () => this.resetBatchZoom());
+
+    header?.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.batch-modal-close')) return;
+      this.batch.modalDrag.isDragging = true;
+      const rect = modal.getBoundingClientRect();
+      this.batch.modalDrag.startX = e.clientX;
+      this.batch.modalDrag.startY = e.clientY;
+      this.batch.modalDrag.startLeft = rect.left;
+      this.batch.modalDrag.startTop = rect.top;
+      modal.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this.batch.modalDrag.isDragging) return;
+      const deltaX = e.clientX - this.batch.modalDrag.startX;
+      const deltaY = e.clientY - this.batch.modalDrag.startY;
+      modal.style.left = `${this.batch.modalDrag.startLeft + deltaX}px`;
+      modal.style.top = `${this.batch.modalDrag.startTop + deltaY}px`;
+      modal.style.transform = 'none';
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (this.batch.modalDrag.isDragging) {
+        modal.style.cursor = '';
+        this.batch.modalDrag.isDragging = false;
+      }
+    });
+
+    resizeHandle?.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.batch.modalResize.isResizing = true;
+      const rect = modal.getBoundingClientRect();
+      this.batch.modalResize.startX = e.clientX;
+      this.batch.modalResize.startY = e.clientY;
+      this.batch.modalResize.startWidth = rect.width;
+      this.batch.modalResize.startHeight = rect.height;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this.batch.modalResize.isResizing) return;
+      const deltaX = e.clientX - this.batch.modalResize.startX;
+      const deltaY = e.clientY - this.batch.modalResize.startY;
+      const newWidth = Math.max(520, this.batch.modalResize.startWidth + deltaX);
+      const newHeight = Math.max(420, this.batch.modalResize.startHeight + deltaY);
+      modal.style.width = `${newWidth}px`;
+      modal.style.height = `${newHeight}px`;
+    });
+
+    window.addEventListener('mouseup', () => {
+      this.batch.modalResize.isResizing = false;
+    });
+  }
+
+  openBatchModal() {
+    const modal = document.getElementById('batchModal');
+    modal?.classList.remove('hidden');
+    if (!this.batch.chart) {
+      this.initializeBatchChart();
+    }
+  }
+
+  closeBatchModal() {
+    if (this.batch.isRunning) {
+      this.stopBatch();
+    }
+    const modal = document.getElementById('batchModal');
+    modal?.classList.add('hidden');
+  }
+
+  initializeBatchChart() {
+    const canvas = document.getElementById('batchChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Register zoom plugin if present
+    try {
+      if (window.Chart && window.ChartZoom) {
+        window.Chart.register(window.ChartZoom);
+      }
+    } catch (e) {
+      // ignore duplicate registration
+    }
+
+    this.batch.chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'O avg', data: [], borderColor: 'rgb(75, 192, 192)', borderWidth: 2, pointRadius: 0, tension: 0.1 },
+          { label: 'R total', data: [], borderColor: 'rgb(255, 99, 132)', borderWidth: 2, pointRadius: 0, tension: 0.1 },
+          { label: 'H avg', data: [], borderColor: 'rgb(255, 205, 86)', borderWidth: 2, pointRadius: 0, tension: 0.1 },
+          { label: 'B total', data: [], borderColor: 'rgb(54, 162, 235)', borderWidth: 2, pointRadius: 0, tension: 0.1 },
+          { label: 'P total', data: [], borderColor: 'rgb(153, 102, 255)', borderWidth: 2, pointRadius: 0, tension: 0.1 },
+          { label: 'P2 total', data: [], borderColor: 'rgb(255, 138, 101)', borderWidth: 2, pointRadius: 0, tension: 0.1 },
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: { color: '#fff', font: { size: 10 } }
+          },
+          tooltip: { mode: 'index', intersect: false },
+          zoom: {
+            pan: { enabled: true, mode: 'x', modifierKey: 'shift' },
+            zoom: {
+              wheel: { enabled: true },
+              pinch: { enabled: true },
+              mode: 'x',
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            title: { display: true, text: 'Virtual Time (s)', color: '#fff' },
+            ticks: { color: '#aaa' },
+            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+          },
+          y: {
+            title: { display: true, text: 'Value', color: '#fff' },
+            ticks: { color: '#aaa' },
+            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+          }
+        },
+        interaction: { mode: 'nearest', axis: 'x', intersect: false }
+      }
+    });
+  }
+
+  resetBatchZoom() {
+    if (this.batch.chart && this.batch.chart.resetZoom) {
+      this.batch.chart.resetZoom();
+    }
+  }
+
+  stopBatch() {
+    if (!this.batch.isRunning) return;
+    this.batch.cancelRequested = true;
+    const stopBtn = document.getElementById('batchStopBtn');
+    if (stopBtn) stopBtn.disabled = true;
+    this.setBatchUiState({ running: true, progressText: 'Stopping...' });
+  }
+
+  setBatchUiState({ running, progressRatio, progressText }) {
+    const runBtn = document.getElementById('batchRunBtn');
+    const stopBtn = document.getElementById('batchStopBtn');
+    const bar = document.getElementById('batchProgressBar');
+    const text = document.getElementById('batchProgressText');
+    if (runBtn) runBtn.disabled = !!running;
+    if (stopBtn) stopBtn.disabled = !running;
+    if (bar) bar.style.width = `${Math.max(0, Math.min(1, progressRatio ?? 0)) * 100}%`;
+    if (text) text.textContent = progressText ?? (running ? 'Running...' : 'Idle');
+  }
+
+  clearBatchChart() {
+    if (!this.batch.chart) return;
+    this.batch.chart.data.labels = [];
+    this.batch.chart.data.datasets.forEach(ds => (ds.data = []));
+    this.batch.chart.update('none');
+  }
+
+  appendBatchPoint(time, stats) {
+    if (!this.batch.chart) return;
+    this.batch.chart.data.labels.push(time);
+    this.batch.chart.data.datasets[0].data.push(stats.oAvg);
+    this.batch.chart.data.datasets[1].data.push(stats.rTotal);
+    this.batch.chart.data.datasets[2].data.push(stats.hAvg);
+    this.batch.chart.data.datasets[3].data.push(stats.bTotal);
+    this.batch.chart.data.datasets[4].data.push(stats.pTotal);
+    this.batch.chart.data.datasets[5].data.push(stats.p2Total);
+    this.batch.chart.update('none');
+  }
+
+  async runBatch() {
+    if (this.batch.isRunning) return;
+    if (!this.engine || !this.buffers || !this.gpuContext) return;
+
+    const stepsEl = document.getElementById('batchSteps');
+    const sampleEl = document.getElementById('batchSampleEvery');
+    const totalSteps = Math.max(1, Math.floor(parseFloat(stepsEl?.value ?? '200000')));
+    const sampleEvery = Math.max(1, Math.floor(parseFloat(sampleEl?.value ?? '1000')));
+
+    // Pause interactive simulation; batch run advances state deterministically from current buffers.
+    const wasRunning = this.isRunning;
+    if (wasRunning) {
+      this.pause();
+    }
+
+    this.batch.isRunning = true;
+    this.batch.cancelRequested = false;
+    this.setBatchUiState({ running: true, progressRatio: 0, progressText: `0 / ${totalSteps} steps` });
+
+    if (!this.batch.chart) {
+      this.initializeBatchChart();
+    }
+    this.clearBatchChart();
+
+    const dt = this.parameters.get('deltaTime');
+    let completed = 0;
+    const startTime = performance.now();
+
+    // Initial sample
+    const initialStats = await this.computeFieldStats();
+    this.appendBatchPoint(this.virtualTime, initialStats);
+
+    // Run in chunks to keep UI responsive.
+    const chunkSize = 512;
+    while (completed < totalSteps && !this.batch.cancelRequested) {
+      const chunkStart = performance.now();
+      const chunkTarget = Math.min(totalSteps - completed, chunkSize);
+
+      for (let i = 0; i < chunkTarget; i++) {
+        this.virtualTime += dt;
+
+        const paramsData = this.parameters.toUniformData();
+        // Keep using the app's virtual time as "currentTime" for particle RNG and repeatability
+        paramsData[26] = this.virtualTime; // SimParams.currentTime
+        this.buffers.updateParamsBuffer(paramsData);
+
+        this.engine.step();
+        completed++;
+
+        if (completed % sampleEvery === 0) {
+          const stats = await this.computeFieldStats();
+          this.appendBatchPoint(this.virtualTime, stats);
+        }
+      }
+
+      const ratio = completed / totalSteps;
+      const elapsed = (performance.now() - startTime) / 1000;
+      this.setBatchUiState({
+        running: true,
+        progressRatio: ratio,
+        progressText: `${completed} / ${totalSteps} steps  •  ${elapsed.toFixed(1)}s`
+      });
+
+      // Yield to UI thread
+      const spent = performance.now() - chunkStart;
+      if (spent > 8) {
+        await new Promise(requestAnimationFrame);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
+
+    const elapsed = (performance.now() - startTime) / 1000;
+    const finalStats = await this.computeFieldStats();
+    this.appendBatchPoint(this.virtualTime, finalStats);
+
+    this.batch.isRunning = false;
+    const wasCancelled = this.batch.cancelRequested;
+    this.batch.cancelRequested = false;
+    this.batch.lastResult = { totalSteps: completed, requestedSteps: totalSteps, sampleEvery, elapsed, finalStats };
+    this.setBatchUiState({
+      running: false,
+      progressRatio: completed / totalSteps,
+      progressText: wasCancelled ? `Stopped: ${completed} steps  •  ${elapsed.toFixed(1)}s` : `Done: ${completed} steps  •  ${elapsed.toFixed(1)}s`
+    });
+
+    // Render once so the user sees the final state when leaving the modal
+    this.renderer?.render();
+
+    // Leave paused; user can resume manually.
+    if (wasRunning) {
+      // keep paused on purpose
+    }
   }
 
   setupEntitySelection() {
@@ -1208,7 +1534,7 @@ class HydrothermalVentSimulation {
       this.virtualTime += dt;
 
       const paramsData = this.parameters.toUniformData();
-      paramsData[23] = this.virtualTime; // Override currentTime for particle RNG
+      paramsData[26] = this.virtualTime; // SimParams.currentTime (for particle RNG)
       this.buffers.updateParamsBuffer(paramsData);
 
       this.engine.step();
