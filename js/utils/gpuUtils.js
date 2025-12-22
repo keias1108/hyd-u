@@ -1,13 +1,26 @@
 /**
- * GPU Utility Functions
- * Common GPU buffer operations and data reading utilities
+ * @fileoverview GPU Utility Functions
+ *
+ * GPU 버퍼 읽기 및 파티클 분석 유틸리티.
+ *
+ * ## 사용처
+ * - main.js: computeFieldStats()에서 필드 통계 읽기
+ * - EntityInspector.js: 파티클 선택 시 데이터 읽기
+ *
+ * ## 주요 함수
+ * - readGpuBuffer(): GPU→CPU 버퍼 복사
+ * - readParticleAt(): 단일 파티클 데이터 읽기
+ * - analyzeParticleBuffer(): 파티클 통계 분석
+ * - findNearestEntity(): 좌표 기반 파티클 검색
+ *
+ * @module utils/gpuUtils
  */
 
 /**
- * Read GPU buffer contents to CPU
- * @param {GPUDevice} device - WebGPU device
- * @param {GPUBuffer} gpuBuffer - Source GPU buffer
- * @returns {Promise<Float32Array>} Buffer contents as Float32Array
+ * GPU 버퍼 내용을 CPU로 읽기
+ * @param {GPUDevice} device - WebGPU 디바이스
+ * @param {GPUBuffer} gpuBuffer - 소스 GPU 버퍼
+ * @returns {Promise<Float32Array>} 버퍼 내용
  */
 export async function readGpuBuffer(device, gpuBuffer) {
   const size = gpuBuffer.size;

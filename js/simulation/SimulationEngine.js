@@ -1,6 +1,29 @@
 /**
- * Simulation Engine
- * Orchestrates compute shader execution for field updates
+ * @fileoverview Simulation Engine
+ *
+ * GPU 컴퓨트 셰이더 실행을 조율하는 핵심 엔진.
+ *
+ * ## 역할
+ * - 컴퓨트 파이프라인 생성 및 관리
+ * - 필드 업데이트 순서 제어 (R→O→C→H→M→P2→P)
+ * - Ping-pong 버퍼 인덱스 관리
+ *
+ * ## 실행 순서 (step() 메서드)
+ * 1. updateR: R 필드 (소스 주입 + 확산)
+ * 2. updateO: O 필드 (이완 + 반응)
+ * 3. computeC: C = R × O
+ * 4. updateH: H 필드 (감쇠)
+ * 5. diffuseH: H 확산
+ * 6. updateM: M 필드 (성장/사멸)
+ * 7. clearDensity + accumulateDensity: 밀도 계산
+ * 8. updateP2: 포식자 이동
+ * 9. updateP: 먹이 이동
+ *
+ * ## 버퍼 관리
+ * - rBufferIndex, oBufferIndex, mBufferIndex, hBufferIndex: 필드 ping-pong
+ * - pBufferIndex, p2BufferIndex: 파티클 ping-pong
+ *
+ * @module simulation/SimulationEngine
  */
 
 export class SimulationEngine {

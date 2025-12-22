@@ -1,6 +1,25 @@
 /**
- * Application Constants
- * Centralized configuration values for the simulation
+ * @fileoverview Application Constants
+ *
+ * 모든 매직 넘버와 설정값을 중앙 관리.
+ *
+ * ## 사용법
+ * ```js
+ * import { FPS_UPDATE_INTERVAL_MS, STORAGE_KEYS } from './core/constants.js';
+ * ```
+ *
+ * ## 카테고리
+ * - TIMING: 업데이트 주기 (FPS, 통계, 엔티티 읽기)
+ * - CHART: 차트 샘플링, 데이터 포인트 제한
+ * - PARTICLE: 최대 파티클 수, 스트라이드
+ * - GPU: 워크그룹 크기
+ * - UI: 모달 크기, 마진, 선택 반경
+ * - BATCH: 배치 실행 설정
+ * - STORAGE_KEYS: localStorage 키 이름
+ * - CHART_COLORS: 차트 색상 정의
+ * - DEFAULT_STATS: 기본 통계값
+ *
+ * @module core/constants
  */
 
 // =============================================================================

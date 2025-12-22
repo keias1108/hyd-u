@@ -1,6 +1,27 @@
 /**
- * Main Application Entry Point
- * Initializes and runs the hydrothermal vent simulation
+ * @fileoverview Main Application Entry Point
+ *
+ * 이 파일은 시뮬레이션의 진입점입니다.
+ *
+ * ## 역할
+ * - WebGPU 초기화 및 버퍼 생성
+ * - 시뮬레이션 엔진/렌더러 초기화
+ * - 애니메이션 루프 실행
+ * - UI 매니저 통합
+ *
+ * ## 의존성
+ * - webgpu/context.js: GPU 컨텍스트
+ * - webgpu/buffers.js: GPU 버퍼
+ * - simulation/SimulationEngine.js: 컴퓨트 파이프라인
+ * - rendering/Renderer.js: 렌더 파이프라인
+ * - managers/*: UI/기능 매니저
+ *
+ * ## 주요 메서드
+ * - initialize(): 전체 초기화
+ * - animate(): 메인 루프
+ * - computeFieldStats(): GPU→CPU 통계 읽기
+ *
+ * @module main
  */
 
 import { WebGPUContext } from './webgpu/context.js';
