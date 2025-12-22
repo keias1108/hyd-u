@@ -36,6 +36,20 @@ struct SimParams {
   mYield: f32,
   deltaTime: f32,
   currentTime: f32,
+
+  // Terrain parameters (appended)
+  terrainEnabled: f32,
+  terrainH0: f32,
+  terrainDepositionRate: f32,
+  terrainBioDepositionRate: f32,
+  terrainErosionRate: f32,
+  terrainHeightErosionAlpha: f32,
+  terrainDiffusionRate: f32,
+  terrainThermalErosionEnabled: f32,
+  terrainTalusSlope: f32,
+  terrainThermalRate: f32,
+  terrainFlowStrength: f32,
+  terrainParticleDriftStrength: f32,
 }
 
 struct PredatorParams {
@@ -72,6 +86,7 @@ struct Particle {
 @group(0) @binding(3) var<uniform> gridInfo: GridInfo;
 @group(0) @binding(4) var<uniform> predatorParams: PredatorParams;
 @group(0) @binding(5) var<uniform> simParams: SimParams;
+@group(0) @binding(6) var<storage, read> terrainField: array<f32>;
 
 fn is_nan(x: f32) -> bool {
   return x != x;
@@ -169,6 +184,20 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
     }
     let dir = vec2<f32>(cos(p.age), sin(p.age));
     desiredVel = dir * predatorParams.p2Speed + noiseVec * 0.5 * predatorParams.p2Speed;
+  }
+
+  // Terrain downhill drift (roll / drift)
+  if (simParams.terrainEnabled > 0.5 && simParams.terrainParticleDriftStrength > 0.0) {
+    let tL = terrainField[base - select(0u, 1u, xi > 0u)];
+    let tR = terrainField[base + select(0u, 1u, xi < gridW - 1u)];
+    let tU = terrainField[base - select(0u, gridW, yi > 0u)];
+    let tD = terrainField[base + select(0u, gridW, yi < gridH - 1u)];
+
+    let dTdx = (tR - tL) * 0.5;
+    let dTdy = (tD - tU) * 0.5;
+    let scale = 1.0 / max(simParams.terrainH0, 1e-6);
+    let drift = -simParams.terrainParticleDriftStrength * vec2<f32>(dTdx, dTdy) * scale;
+    desiredVel = desiredVel + drift;
   }
 
   let damping = clamp(1.0 - predatorParams.p2Friction * dt, 0.0, 1.0);

@@ -15,6 +15,50 @@ struct RenderParams {
   padding1: u32,
 }
 
+struct SimParams {
+  rCenterX: f32,
+  rCenterY: f32,
+  rMaxStrength: f32,
+  rDecayRadius: f32,
+  rFalloffPower: f32,
+  rDiffusionRate: f32,
+  rDecayRate: f32,
+  rAdvectionEnabled: f32,
+  rAdvectionVX: f32,
+  rAdvectionVY: f32,
+  o0: f32,
+  oRelaxationRate: f32,
+  restoreRate: f32,
+  oDiffusionRate: f32,
+  reactionRate: f32,
+  h0: f32,
+  hDecayRate: f32,
+  hDiffusionRate: f32,
+  mGrowRate: f32,
+  mDeathRate: f32,
+  bDecayRate: f32,
+  kBase: f32,
+  kAlpha: f32,
+  bLongRate: f32,
+  mYield: f32,
+  deltaTime: f32,
+  currentTime: f32,
+
+  // Terrain parameters (appended)
+  terrainEnabled: f32,
+  terrainH0: f32,
+  terrainDepositionRate: f32,
+  terrainBioDepositionRate: f32,
+  terrainErosionRate: f32,
+  terrainHeightErosionAlpha: f32,
+  terrainDiffusionRate: f32,
+  terrainThermalErosionEnabled: f32,
+  terrainTalusSlope: f32,
+  terrainThermalRate: f32,
+  terrainFlowStrength: f32,
+  terrainParticleDriftStrength: f32,
+}
+
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) uv: vec2<f32>,
@@ -154,6 +198,13 @@ fn applyColorScheme(value: f32, scheme: u32) -> vec4<f32> {
 @group(0) @binding(5) var<storage, read> bField: array<f32>;
 @group(0) @binding(6) var<uniform> gridInfo: GridInfo;
 @group(0) @binding(7) var<uniform> renderParams: RenderParams;
+@group(0) @binding(8) var<storage, read> terrainField: array<f32>;
+@group(0) @binding(9) var<uniform> simParams: SimParams;
+
+fn height_to_z(h: f32, h0: f32) -> f32 {
+  let safeH0 = max(h0, 1e-6);
+  return 1.0 - exp(-max(h, 0.0) / safeH0);
+}
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
@@ -174,10 +225,30 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     value = cField[idx];  // C = R * O overlap
   } else if (renderParams.visualizationMode == 4u) {
     value = clamp(mField[idx], 0.0, 1.0);
-  } else { // 5=B
+  } else if (renderParams.visualizationMode == 5u) {
     value = clamp(bField[idx] * 0.5, 0.0, 1.0); // scale down if needed
+  } else { // 6=Terrain (Z)
+    let h = terrainField[idx];
+    value = height_to_z(h, simParams.terrainH0);
   }
 
-  // Apply color scheme and return
-  return applyColorScheme(value, renderParams.colorScheme);
+  var color = applyColorScheme(value, renderParams.colorScheme);
+
+  // Terrain relief shading only for terrain mode (keeps other fields "data-faithful")
+  if (renderParams.visualizationMode == 6u) {
+    let hC = terrainField[idx];
+    let hL = terrainField[idx - select(0u, 1u, x > 0u)];
+    let hR = terrainField[idx + select(0u, 1u, x < gridInfo.width - 1u)];
+    let hU = terrainField[idx - select(0u, gridInfo.width, y > 0u)];
+    let hD = terrainField[idx + select(0u, gridInfo.width, y < gridInfo.height - 1u)];
+
+    let dHdx = (hR - hL) * 0.5;
+    let dHdy = (hD - hU) * 0.5;
+    let normal = normalize(vec3<f32>(-dHdx * 2.0, -dHdy * 2.0, 1.0));
+    let lightDir = normalize(vec3<f32>(0.4, 0.6, 1.0));
+    let shade = clamp(dot(normal, lightDir), 0.0, 1.0);
+    color = color * (0.35 + 0.65 * shade);
+  }
+
+  return color;
 }

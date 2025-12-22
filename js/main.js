@@ -149,6 +149,7 @@ class HydrothermalVentSimulation {
     this.buffers.initializeOField(this.parameters.get('o0'));
     this.buffers.initializeCField();
     this.buffers.initializeHField(this.parameters.get('h0'));
+    this.buffers.initializeTerrainFields(0.0);
     this.buffers.initializeMField();
     this.buffers.initializeBField();
     this.buffers.initializeBLongField();
@@ -415,6 +416,7 @@ class HydrothermalVentSimulation {
     this.engine.oBufferIndex = 0;
     this.engine.mBufferIndex = 0;
     this.engine.hBufferIndex = 0;
+    this.engine.zBufferIndex = 0;
     this.engine.pBufferIndex = 0;
     this.engine.p2BufferIndex = 0;
 

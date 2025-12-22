@@ -16,6 +16,7 @@ WebGPU 기반 열수분출구 생태계 시뮬레이션
 | **B** | 축적 영양분 |
 | **P** | 먹이 파티클 (최대 16,384) |
 | **P2** | 포식자 파티클 (최대 16,384) |
+| **Z** | 지형 높이(terrain) 필드 (침식/퇴적 + 사면 안정화) |
 
 ## 실행 방법
 
@@ -58,6 +59,7 @@ shaders/
 │   ├── updateO.wgsl             # O 필드 + 반응
 │   ├── updateH.wgsl             # H 필드
 │   ├── updateM.wgsl             # M 필드
+│   ├── updateZ.wgsl             # Z(지형) 필드
 │   ├── updateP.wgsl             # 먹이 파티클
 │   ├── updateP2.wgsl            # 포식자 파티클
 │   └── ...

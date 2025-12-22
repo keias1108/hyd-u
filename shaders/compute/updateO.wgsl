@@ -36,6 +36,20 @@ struct SimParams {
   mYield: f32,
   deltaTime: f32,
   currentTime: f32,
+
+  // Terrain parameters (appended)
+  terrainEnabled: f32,
+  terrainH0: f32,
+  terrainDepositionRate: f32,
+  terrainBioDepositionRate: f32,
+  terrainErosionRate: f32,
+  terrainHeightErosionAlpha: f32,
+  terrainDiffusionRate: f32,
+  terrainThermalErosionEnabled: f32,
+  terrainTalusSlope: f32,
+  terrainThermalRate: f32,
+  terrainFlowStrength: f32,
+  terrainParticleDriftStrength: f32,
 }
 
 @group(0) @binding(0) var<storage, read> oFieldIn: array<f32>;
@@ -45,6 +59,7 @@ struct SimParams {
 @group(0) @binding(4) var<storage, read_write> bField: array<f32>;
 @group(0) @binding(5) var<uniform> gridInfo: GridInfo;
 @group(0) @binding(6) var<uniform> params: SimParams;
+@group(0) @binding(7) var<storage, read> terrainField: array<f32>;
 
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
@@ -84,6 +99,29 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   let laplacian = left + right + up + down - 4.0 * currentO;
   let diffusion = params.oDiffusionRate * laplacian * params.deltaTime;
 
+  // Terrain-driven downhill flow (adds advection term)
+  var advection = 0.0;
+  if (params.terrainEnabled > 0.5 && params.terrainFlowStrength > 0.0) {
+    let dOdx = (right - left) * 0.5;
+    let dOdy = (down - up) * 0.5;
+
+    let hC = terrainField[idx];
+    var hL = hC;
+    var hR = hC;
+    var hU = hC;
+    var hD = hC;
+    if (x > 0u) { hL = terrainField[idx - 1u]; }
+    if (x < gridInfo.width - 1u) { hR = terrainField[idx + 1u]; }
+    if (y > 0u) { hU = terrainField[idx - gridInfo.width]; }
+    if (y < gridInfo.height - 1u) { hD = terrainField[idx + gridInfo.width]; }
+
+    let dHdx = (hR - hL) * 0.5;
+    let dHdy = (hD - hU) * 0.5;
+    let v = -params.terrainFlowStrength * vec2<f32>(dHdx, dHdy);
+
+    advection = -(v.x * dOdx + v.y * dOdy) * params.deltaTime;
+  }
+
   // Reaction flux calculation (nonlinear R·O) with partitioning by M
   let C = currentR * currentO;
   let F_raw = params.reactionRate * C;
@@ -95,7 +133,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
   // O update: restoration - reaction consumption
   let restore = params.restoreRate * (params.o0 - currentO) * params.deltaTime;
   let consumption = F * params.deltaTime;
-  let newO = currentO + restore + diffusion - consumption;
+  let newO = currentO + restore + diffusion + advection - consumption;
 
   // Clamp to valid range [0, 1]
   oFieldOut[idx] = clamp(newO, 0.0, 1.0);

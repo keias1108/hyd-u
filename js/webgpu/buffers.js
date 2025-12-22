@@ -140,6 +140,26 @@ export class SimulationBuffers {
       label: 'H Field Buffer B'
     });
 
+    // Terrain rock/base height field (non-erodible bedrock)
+    this.terrainRockField = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'Terrain Rock Field Buffer'
+    });
+
+    // Terrain height field (ping-pong)
+    this.terrainFieldA = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'Terrain Height Field Buffer A'
+    });
+
+    this.terrainFieldB = this.device.createBuffer({
+      size: fieldBufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'Terrain Height Field Buffer B'
+    });
+
     console.log(`Created field buffers including H field: ${this.gridWidth}x${this.gridHeight} = ${this.gridSize} cells`);
   }
 
@@ -231,6 +251,22 @@ export class SimulationBuffers {
     this.device.queue.writeBuffer(this.cField, 0, data);
 
     console.log('Initialized C field to 0');
+  }
+
+  /**
+   * Initialize terrain fields.
+   * - Rock field: fixed bedrock baseline (default flat 0.0)
+   * - Terrain height field: dynamic height H, starts from rock baseline
+   */
+  initializeTerrainFields(rockBase = 0.0) {
+    const rock = new Float32Array(this.gridSize);
+    rock.fill(rockBase);
+
+    this.device.queue.writeBuffer(this.terrainRockField, 0, rock);
+    this.device.queue.writeBuffer(this.terrainFieldA, 0, rock);
+    this.device.queue.writeBuffer(this.terrainFieldB, 0, rock);
+
+    console.log(`Initialized terrain fields (rockBase=${rockBase})`);
   }
 
   /**
@@ -437,6 +473,20 @@ export class SimulationBuffers {
    */
   getHBufferNext(index) {
     return index === 0 ? this.hFieldB : this.hFieldA;
+  }
+
+  /**
+   * Get current Terrain buffer based on ping-pong index
+   */
+  getTerrainBufferCurrent(index) {
+    return index === 0 ? this.terrainFieldA : this.terrainFieldB;
+  }
+
+  /**
+   * Get next Terrain buffer based on ping-pong index
+   */
+  getTerrainBufferNext(index) {
+    return index === 0 ? this.terrainFieldB : this.terrainFieldA;
   }
 
   /**

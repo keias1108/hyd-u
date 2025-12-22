@@ -36,12 +36,27 @@ struct SimParams {
   mYield: f32,
   deltaTime: f32,
   currentTime: f32,
+
+  // Terrain parameters (appended)
+  terrainEnabled: f32,
+  terrainH0: f32,
+  terrainDepositionRate: f32,
+  terrainBioDepositionRate: f32,
+  terrainErosionRate: f32,
+  terrainHeightErosionAlpha: f32,
+  terrainDiffusionRate: f32,
+  terrainThermalErosionEnabled: f32,
+  terrainTalusSlope: f32,
+  terrainThermalRate: f32,
+  terrainFlowStrength: f32,
+  terrainParticleDriftStrength: f32,
 }
 
 @group(0) @binding(0) var<storage, read> hFieldIn: array<f32>;
 @group(0) @binding(1) var<storage, read_write> hFieldOut: array<f32>;
 @group(0) @binding(2) var<uniform> gridInfo: GridInfo;
 @group(0) @binding(3) var<uniform> params: SimParams;
+@group(0) @binding(4) var<storage, read> terrainField: array<f32>;
 
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
@@ -80,7 +95,31 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
 
   // Diffusion: H_new = H + D * ∇²H * dt
   let diffusion = params.hDiffusionRate * laplacian * params.deltaTime;
-  let newH = center + diffusion;
+
+  // Terrain-driven downhill flow (adds advection term)
+  var advection = 0.0;
+  if (params.terrainEnabled > 0.5 && params.terrainFlowStrength > 0.0) {
+    let dHdx_field = (right - left) * 0.5;
+    let dHdy_field = (down - up) * 0.5;
+
+    let tC = terrainField[idx];
+    var tL = tC;
+    var tR = tC;
+    var tU = tC;
+    var tD = tC;
+    if (x > 0u) { tL = terrainField[idx - 1u]; }
+    if (x < gridInfo.width - 1u) { tR = terrainField[idx + 1u]; }
+    if (y > 0u) { tU = terrainField[idx - gridInfo.width]; }
+    if (y < gridInfo.height - 1u) { tD = terrainField[idx + gridInfo.width]; }
+
+    let dTdx = (tR - tL) * 0.5;
+    let dTdy = (tD - tU) * 0.5;
+    let v = -params.terrainFlowStrength * vec2<f32>(dTdx, dTdy);
+
+    advection = -(v.x * dHdx_field + v.y * dHdy_field) * params.deltaTime;
+  }
+
+  let newH = center + diffusion + advection;
 
   // Clamp to reasonable range [0, 10]
   hFieldOut[idx] = clamp(newH, 0.0, 10.0);

@@ -556,12 +556,122 @@ export const PARAMETER_DEFS = [
     "Speed multiplier (sub-steps per frame)"
   ),
 
+  // Terrain (height field / Z axis)
+  new ParameterDefinition(
+    "terrainEnabled",
+    1,
+    0,
+    1,
+    1,
+    "Terrain",
+    "Terrain feedback ON/OFF"
+  ),
+  new ParameterDefinition(
+    "terrainH0",
+    1.0,
+    0.05,
+    10.0,
+    0.05,
+    "Terrain",
+    "Height tone-map scale (H0)"
+  ),
+  new ParameterDefinition(
+    "terrainDepositionRate",
+    0.1,
+    0,
+    2.0,
+    0.01,
+    "Terrain",
+    "Deposition rate from (waste reaction)"
+  ),
+  new ParameterDefinition(
+    "terrainBioDepositionRate",
+    0.002,
+    0,
+    0.1,
+    0.0005,
+    "Terrain",
+    "Deposition rate from long-term B"
+  ),
+  new ParameterDefinition(
+    "terrainErosionRate",
+    0.05,
+    0,
+    2.0,
+    0.01,
+    "Terrain",
+    "Erosion rate from |∇R|"
+  ),
+  new ParameterDefinition(
+    "terrainHeightErosionAlpha",
+    2.0,
+    0,
+    20.0,
+    0.1,
+    "Terrain",
+    "Extra erosion at high Z"
+  ),
+  new ParameterDefinition(
+    "terrainDiffusionRate",
+    0.01,
+    0,
+    1.0,
+    0.001,
+    "Terrain",
+    "Terrain smoothing diffusion"
+  ),
+  new ParameterDefinition(
+    "terrainThermalErosionEnabled",
+    1,
+    0,
+    1,
+    1,
+    "Terrain",
+    "Thermal erosion (talus) ON/OFF"
+  ),
+  new ParameterDefinition(
+    "terrainTalusSlope",
+    0.3,
+    0.01,
+    2.0,
+    0.01,
+    "Terrain",
+    "Talus slope threshold"
+  ),
+  new ParameterDefinition(
+    "terrainThermalRate",
+    0.2,
+    0,
+    5.0,
+    0.01,
+    "Terrain",
+    "Thermal erosion strength"
+  ),
+  new ParameterDefinition(
+    "terrainFlowStrength",
+    0.08,
+    0,
+    2.0,
+    0.01,
+    "Terrain",
+    "Downhill flow strength (fields)"
+  ),
+  new ParameterDefinition(
+    "terrainParticleDriftStrength",
+    0.12,
+    0,
+    2.0,
+    0.01,
+    "Terrain",
+    "Downhill drift strength (particles)"
+  ),
+
   // Visualization
   new ParameterDefinition(
     "visualizationMode",
     4,
     0,
-    5,
+    6,
     1,
     "Visualization",
     "Display mode"
@@ -587,6 +697,7 @@ export const VIZ_MODE_LABELS = [
   "C=R×O Overlap",
   "M Field",
   "B Field",
+  "Terrain (Z)",
 ];
 
 /**
@@ -685,8 +796,22 @@ export class SimulationParameters {
     data[offset++] = this.values.deltaTime;
     data[offset++] = performance.now() / 1000.0; // currentTime in seconds
 
-    // Padding for alignment
-    while (offset < 32) {
+    // Terrain parameters (appended; keeps old offsets stable)
+    data[offset++] = this.values.terrainEnabled;
+    data[offset++] = this.values.terrainH0;
+    data[offset++] = this.values.terrainDepositionRate;
+    data[offset++] = this.values.terrainBioDepositionRate;
+    data[offset++] = this.values.terrainErosionRate;
+    data[offset++] = this.values.terrainHeightErosionAlpha;
+    data[offset++] = this.values.terrainDiffusionRate;
+    data[offset++] = this.values.terrainThermalErosionEnabled;
+    data[offset++] = this.values.terrainTalusSlope;
+    data[offset++] = this.values.terrainThermalRate;
+    data[offset++] = this.values.terrainFlowStrength;
+    data[offset++] = this.values.terrainParticleDriftStrength;
+
+    // Padding for alignment / safety
+    while (offset < data.length) {
       data[offset++] = 0.0;
     }
 

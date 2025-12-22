@@ -50,6 +50,8 @@ export class Renderer {
         { binding: 5, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }, // bField
         { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },           // gridInfo
         { binding: 7, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },           // renderParams
+        { binding: 8, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }, // terrainField
+        { binding: 9, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },           // simParams
       ],
     });
 
@@ -227,6 +229,9 @@ export class Renderer {
     const currentMBuffer = this.simulationEngine.getCurrentMBuffer
       ? this.simulationEngine.getCurrentMBuffer()
       : (this.buffers.getMBufferCurrent ? this.buffers.getMBufferCurrent(0) : this.buffers.mFieldA);
+    const currentZBuffer = this.simulationEngine.getCurrentZBuffer
+      ? this.simulationEngine.getCurrentZBuffer()
+      : (this.buffers.getTerrainBufferCurrent ? this.buffers.getTerrainBufferCurrent(0) : this.buffers.terrainFieldA);
 
     this.renderBindGroup = this.device.createBindGroup({
       label: 'Render Bind Group',
@@ -240,6 +245,8 @@ export class Renderer {
         { binding: 5, resource: { buffer: this.buffers.bField } },
         { binding: 6, resource: { buffer: this.buffers.gridInfoBuffer } },
         { binding: 7, resource: { buffer: this.buffers.renderParamsBuffer } },
+        { binding: 8, resource: { buffer: currentZBuffer } },
+        { binding: 9, resource: { buffer: this.buffers.paramsBuffer } },
       ],
     });
   }

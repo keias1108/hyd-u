@@ -5,7 +5,7 @@
  *
  * ## 역할
  * - 컴퓨트 파이프라인 생성 및 관리
- * - 필드 업데이트 순서 제어 (R→O→C→H→M→P2→P)
+ * - 필드 업데이트 순서 제어 (R→O→C→H→M→Z→P2→P)
  * - Ping-pong 버퍼 인덱스 관리
  *
  * ## 실행 순서 (step() 메서드)
@@ -15,9 +15,10 @@
  * 4. updateH: H 필드 (감쇠)
  * 5. diffuseH: H 확산
  * 6. updateM: M 필드 (성장/사멸)
- * 7. clearDensity + accumulateDensity: 밀도 계산
- * 8. updateP2: 포식자 이동
- * 9. updateP: 먹이 이동
+ * 7. updateZ: Z(지형) 필드 (침식/퇴적 + 사면 안정화)
+ * 8. clearDensity + accumulateDensity: 밀도 계산
+ * 9. updateP2: 포식자 이동
+ * 10. updateP: 먹이 이동
  *
  * ## 버퍼 관리
  * - rBufferIndex, oBufferIndex, mBufferIndex, hBufferIndex: 필드 ping-pong
@@ -43,6 +44,9 @@ export class SimulationEngine {
     // Ping-pong buffer index for H field (0 = A current, 1 = B current)
     this.hBufferIndex = 0;
 
+    // Ping-pong buffer index for Terrain (height/Z)
+    this.zBufferIndex = 0;
+
     // Ping-pong buffer index for Particles
     this.pBufferIndex = 0;
     this.p2BufferIndex = 0;
@@ -57,6 +61,7 @@ export class SimulationEngine {
     this.mPipeline = null;
     this.hPipeline = null;
     this.hDiffusePipeline = null;
+    this.zPipeline = null;
     this.pPipeline = null;
     this.p2Pipeline = null;
     this.clearDensityPipeline = null;
@@ -71,8 +76,8 @@ export class SimulationEngine {
     this.cBindGroupB = null;  // Use O from B
     this.hBindGroupA = null;  // H: Read from A, write to B
     this.hBindGroupB = null;  // H: Read from B, write to A
-    this.hDiffuseBindGroupA = null;  // H diffusion: A → B
-    this.hDiffuseBindGroupB = null;  // H diffusion: B → A
+    this.hDiffuseBindGroupA = null;  // (deprecated) kept for compatibility
+    this.hDiffuseBindGroupB = null;  // (deprecated) kept for compatibility
   }
 
   /**
@@ -86,6 +91,7 @@ export class SimulationEngine {
     const updateMCode = await this.loadShader('shaders/compute/updateM.wgsl');
     const updateHCode = await this.loadShader('shaders/compute/updateH.wgsl');
     const diffuseHCode = await this.loadShader('shaders/compute/diffuseH.wgsl');
+    const updateZCode = await this.loadShader('shaders/compute/updateZ.wgsl');
     const updatePCode = await this.loadShader('shaders/compute/updateP.wgsl');
     const updateP2Code = await this.loadShader('shaders/compute/updateP2.wgsl');
     const clearDensityCode = await this.loadShader('shaders/compute/clearDensity.wgsl');
@@ -99,13 +105,14 @@ export class SimulationEngine {
     await this.createMPipeline(updateMCode);
     await this.createHPipeline(updateHCode);
     await this.createHDiffusePipeline(diffuseHCode);
+    await this.createZPipeline(updateZCode);
     await this.createPPipeline(updatePCode);
     await this.createP2Pipeline(updateP2Code);
     await this.createClearDensityPipeline(clearDensityCode);
     await this.createAccumulateDensityPipeline(accumulateDensityCode);
     await this.createClearPredatorsPipeline(clearParticlesCode);
 
-    console.log('Simulation engine initialized with H field');
+    console.log('Simulation engine initialized (fields: R/O/C/H/M/B + Terrain + particles)');
   }
 
   /**
@@ -136,6 +143,7 @@ export class SimulationEngine {
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // rFieldOut
         { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
         { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // terrainField
       ],
     });
 
@@ -173,6 +181,7 @@ export class SimulationEngine {
         { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // bField
         { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
         { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
+        { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // terrainField
       ],
     });
 
@@ -320,6 +329,7 @@ export class SimulationEngine {
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // hFieldOut
         { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
         { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // terrainField
       ],
     });
 
@@ -337,27 +347,47 @@ export class SimulationEngine {
       },
     });
 
-    // Create bind groups
-    this.hDiffuseBindGroupA = this.device.createBindGroup({
-      label: 'H Diffuse Bind Group A',
-      layout: bindGroupLayout,
+    // Bind groups are created dynamically in step() (terrain field is ping-pong)
+    this.hDiffuseBindGroupA = null;
+    this.hDiffuseBindGroupB = null;
+  }
+
+  /**
+   * Create Terrain (Z/H) update pipeline
+   */
+  async createZPipeline(code) {
+    const shaderModule = this.device.createShaderModule({
+      label: 'Terrain Update Shader',
+      code: code,
+    });
+
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Terrain Bind Group Layout',
       entries: [
-        { binding: 0, resource: { buffer: this.buffers.hFieldA } },
-        { binding: 1, resource: { buffer: this.buffers.hFieldB } },
-        { binding: 2, resource: { buffer: this.buffers.gridInfoBuffer } },
-        { binding: 3, resource: { buffer: this.buffers.paramsBuffer } },
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // terrainIn
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // terrainOut
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // terrainRock
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // rField
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // oField
+        { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // mField
+        { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // bLongField
+        { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
+        { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // params
       ],
     });
 
-    this.hDiffuseBindGroupB = this.device.createBindGroup({
-      label: 'H Diffuse Bind Group B',
-      layout: bindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.buffers.hFieldB } },
-        { binding: 1, resource: { buffer: this.buffers.hFieldA } },
-        { binding: 2, resource: { buffer: this.buffers.gridInfoBuffer } },
-        { binding: 3, resource: { buffer: this.buffers.paramsBuffer } },
-      ],
+    const pipelineLayout = this.device.createPipelineLayout({
+      label: 'Terrain Pipeline Layout',
+      bindGroupLayouts: [bindGroupLayout],
+    });
+
+    this.zPipeline = this.device.createComputePipeline({
+      label: 'Terrain Compute Pipeline',
+      layout: pipelineLayout,
+      compute: {
+        module: shaderModule,
+        entryPoint: 'main',
+      },
     });
   }
 
@@ -381,6 +411,7 @@ export class SimulationEngine {
         { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // simParams
         { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },           // p2Density
         { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // predatorParams
+        { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // terrainField
       ],
     });
 
@@ -417,6 +448,7 @@ export class SimulationEngine {
         { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // gridInfo
         { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // predatorParams
         { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },           // simParams
+        { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // terrainField
       ],
     });
 
@@ -559,6 +591,7 @@ export class SimulationEngine {
           { binding: 1, resource: { buffer: nextRBuffer } },
           { binding: 2, resource: { buffer: this.buffers.gridInfoBuffer } },
           { binding: 3, resource: { buffer: this.buffers.paramsBuffer } },
+          { binding: 4, resource: { buffer: this.buffers.getTerrainBufferCurrent(this.zBufferIndex) } },
         ],
       });
 
@@ -591,6 +624,7 @@ export class SimulationEngine {
           { binding: 4, resource: { buffer: this.buffers.bField } },
           { binding: 5, resource: { buffer: this.buffers.gridInfoBuffer } },
           { binding: 6, resource: { buffer: this.buffers.paramsBuffer } },
+          { binding: 7, resource: { buffer: this.buffers.getTerrainBufferCurrent(this.zBufferIndex) } },
         ],
       });
 
@@ -668,9 +702,23 @@ export class SimulationEngine {
       const pass = encoder.beginComputePass({ label: 'Diffuse H Field' });
       pass.setPipeline(this.hDiffusePipeline);
 
-      // Use appropriate bind group based on current buffer index
-      const bindGroup = this.hBufferIndex === 0 ? this.hDiffuseBindGroupA : this.hDiffuseBindGroupB;
-      pass.setBindGroup(0, bindGroup);
+      const currentHBuffer = this.hBufferIndex === 0 ? this.buffers.hFieldA : this.buffers.hFieldB;
+      const nextHBuffer = this.hBufferIndex === 0 ? this.buffers.hFieldB : this.buffers.hFieldA;
+      const currentTerrainBuffer = this.buffers.getTerrainBufferCurrent(this.zBufferIndex);
+
+      const hDiffuseBindGroup = this.device.createBindGroup({
+        label: 'H Diffuse Bind Group (dynamic)',
+        layout: this.hDiffusePipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentHBuffer } },
+          { binding: 1, resource: { buffer: nextHBuffer } },
+          { binding: 2, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 3, resource: { buffer: this.buffers.paramsBuffer } },
+          { binding: 4, resource: { buffer: currentTerrainBuffer } },
+        ],
+      });
+
+      pass.setBindGroup(0, hDiffuseBindGroup);
 
       pass.dispatchWorkgroups(workgroupsX, workgroupsY);
       pass.end();
@@ -707,6 +755,43 @@ export class SimulationEngine {
 
     // Swap M buffer index
     this.mBufferIndex = 1 - this.mBufferIndex;
+
+    // 6.5 Update Terrain height field (slow geomorphology, ping-pong)
+    // Uses the newly-updated R/O/M state; influences movement/flow in subsequent steps.
+    {
+      const pass = encoder.beginComputePass({ label: 'Update Terrain Field' });
+      pass.setPipeline(this.zPipeline);
+
+      const currentTerrainBuffer = this.buffers.getTerrainBufferCurrent(this.zBufferIndex);
+      const nextTerrainBuffer = this.buffers.getTerrainBufferNext(this.zBufferIndex);
+
+      const currentRBuffer = this.buffers.getRBufferCurrent(this.rBufferIndex);
+      const currentOBuffer = this.buffers.getOBufferCurrent(this.oBufferIndex);
+      const currentMBuffer = this.buffers.getMBufferCurrent(this.mBufferIndex);
+
+      const zBindGroup = this.device.createBindGroup({
+        label: 'Terrain Bind Group (dynamic)',
+        layout: this.zPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: currentTerrainBuffer } },
+          { binding: 1, resource: { buffer: nextTerrainBuffer } },
+          { binding: 2, resource: { buffer: this.buffers.terrainRockField } },
+          { binding: 3, resource: { buffer: currentRBuffer } },
+          { binding: 4, resource: { buffer: currentOBuffer } },
+          { binding: 5, resource: { buffer: currentMBuffer } },
+          { binding: 6, resource: { buffer: this.buffers.bLongField } },
+          { binding: 7, resource: { buffer: this.buffers.gridInfoBuffer } },
+          { binding: 8, resource: { buffer: this.buffers.paramsBuffer } },
+        ],
+      });
+
+      pass.setBindGroup(0, zBindGroup);
+      pass.dispatchWorkgroups(workgroupsX, workgroupsY);
+      pass.end();
+    }
+
+    // Swap Terrain buffer index
+    this.zBufferIndex = 1 - this.zBufferIndex;
 
     // 7. Clear P density buffer
     {
@@ -789,6 +874,7 @@ export class SimulationEngine {
           { binding: 3, resource: { buffer: this.buffers.gridInfoBuffer } },
           { binding: 4, resource: { buffer: this.buffers.predatorParamsBuffer } },
           { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
+          { binding: 6, resource: { buffer: this.buffers.getTerrainBufferCurrent(this.zBufferIndex) } },
         ],
       });
 
@@ -863,6 +949,7 @@ export class SimulationEngine {
           { binding: 5, resource: { buffer: this.buffers.paramsBuffer } },
           { binding: 6, resource: { buffer: this.buffers.p2Density } },
           { binding: 7, resource: { buffer: this.buffers.predatorParamsBuffer } },
+          { binding: 8, resource: { buffer: this.buffers.getTerrainBufferCurrent(this.zBufferIndex) } },
         ],
       });
 
@@ -906,6 +993,13 @@ export class SimulationEngine {
    */
   getCurrentHBuffer() {
     return this.hBufferIndex === 0 ? this.buffers.hFieldA : this.buffers.hFieldB;
+  }
+
+  /**
+   * Get current Terrain (Z/H) buffer for rendering
+   */
+  getCurrentZBuffer() {
+    return this.zBufferIndex === 0 ? this.buffers.terrainFieldA : this.buffers.terrainFieldB;
   }
 
   /**

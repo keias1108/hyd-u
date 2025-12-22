@@ -36,6 +36,20 @@ struct SimParams {
   mYield: f32,
   deltaTime: f32,
   currentTime: f32,
+
+  // Terrain parameters (appended)
+  terrainEnabled: f32,
+  terrainH0: f32,
+  terrainDepositionRate: f32,
+  terrainBioDepositionRate: f32,
+  terrainErosionRate: f32,
+  terrainHeightErosionAlpha: f32,
+  terrainDiffusionRate: f32,
+  terrainThermalErosionEnabled: f32,
+  terrainTalusSlope: f32,
+  terrainThermalRate: f32,
+  terrainFlowStrength: f32,
+  terrainParticleDriftStrength: f32,
 }
 
 @group(0) @binding(0) var<storage, read> hFieldIn: array<f32>;
